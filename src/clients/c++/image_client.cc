@@ -61,8 +61,44 @@ namespace nic = nvidia::inferenceserver::client;
 namespace {
 
 enum ScaleType { NONE = 0, VGG = 1, INCEPTION = 2 };
-
 enum ProtocolType { HTTP = 0, GRPC = 1 };
+
+// Enable detailed tracing until goes out of scope.
+class ScopedTrace {
+ public:
+  ScopedTrace(
+      std::unique_ptr<nic::TraceControlContext> ctx, const std::string& host,
+      uint32_t port)
+      : ctx_(std::move(ctx)), host_(host), port_(port)
+  {
+    std::unique_ptr<nic::TraceControlContext::Options> options;
+    nic::TraceControlContext::Options::Create(&options);
+    options->SetTraceHost(host);
+    options->SetTracePort(port);
+    nic::Error err = ctx->Configure(*options);
+    if (!err.IsOk()) {
+      std::cerr << "warning: enable trace: " << err << std::endl;
+    }
+  }
+
+  ~ScopedTrace()
+  {
+    nic::Error err = ctx_->SetLevel(0, 0);
+    if (!err.IsOk()) {
+      std::cerr << "warning: unable to disable trace: " << err << std::endl;
+    }
+  }
+
+  nic::Error Enable(uint32_t level, uint32_t rate)
+  {
+    return ctx_->SetLevel(level, rate);
+  }
+
+ private:
+  std::unique_ptr<nic::TraceControlContext> ctx_;
+  const std::string host_;
+  const uint32_t port_;
+};
 
 void
 Preprocess(
@@ -229,6 +265,8 @@ Usage(char** argv, const std::string& msg = std::string())
   std::cerr << "\t-v" << std::endl;
   std::cerr << "\t-a" << std::endl;
   std::cerr << "\t--streaming" << std::endl;
+  std::cerr << "\t--trace-host" << std::endl;
+  std::cerr << "\t--trace-port" << std::endl;
   std::cerr << "\t-b <batch size>" << std::endl;
   std::cerr << "\t-c <topk>" << std::endl;
   std::cerr << "\t-s <NONE|INCEPTION|VGG>" << std::endl;
@@ -500,6 +538,8 @@ main(int argc, char** argv)
   bool verbose = false;
   bool async = false;
   bool streaming = false;
+  std::string trace_host;
+  uint32_t trace_port = 9411;
   size_t batch_size = 1;
   size_t topk = 1;
   ScaleType scale = ScaleType::NONE;
@@ -510,7 +550,11 @@ main(int argc, char** argv)
   ProtocolType protocol = ProtocolType::HTTP;
   std::map<std::string, std::string> http_headers;
 
-  static struct option long_options[] = {{"streaming", 0, 0, 0}, {0, 0, 0, 0}};
+  static struct option long_options[] = {
+      {"streaming", no_argument, nullptr, 0},
+      {"trace-host", required_argument, nullptr, 1},
+      {"trace-port", required_argument, nullptr, 2},
+      {0, 0, 0, 0}};
 
   // Parse commandline...
   int opt;
@@ -519,6 +563,12 @@ main(int argc, char** argv)
     switch (opt) {
       case 0:
         streaming = true;
+        break;
+      case 1:
+        trace_host = optarg;
+        break;
+      case 2:
+        trace_port = std::atol(optarg);
         break;
       case 'v':
         verbose = true;
@@ -609,7 +659,31 @@ main(int argc, char** argv)
   int type1, type3;
   ParseModel(ctx, batch_size, &c, &h, &w, &format, &type1, &type3, verbose);
 
-  //
+  // If requested, enable detailed tracing in the server and trace
+  // every request.
+  std::unique_ptr<ScopedTrace> tracer;
+  if (!trace_host.empty()) {
+    std::unique_ptr<nic::TraceControlContext> ctx;
+    if (protocol == ProtocolType::HTTP) {
+      err = nic::TraceControlHttpContext::Create(
+          &ctx, url, http_headers, verbose);
+    } else {
+      err = nic::TraceControlGrpcContext::Create(&ctx, url, verbose);
+    }
+
+    if (!err.IsOk()) {
+      std::cerr << "error: unable to create trace context: " << err
+                << std::endl;
+      exit(1);
+    }
+
+    tracer.reset(new ScopedTrace(std::move(ctx), trace_host, trace_port));
+    err = tracer->Enable(2 /* level */, 1 /* rate */);
+    if (!err.IsOk()) {
+      std::cerr << "error: unable to enable trace: " << err << std::endl;
+      exit(1);
+    }
+  }
 
   // Collect the names of the image(s).
   std::vector<std::string> image_filenames;
