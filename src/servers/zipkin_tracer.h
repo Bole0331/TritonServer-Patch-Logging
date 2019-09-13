@@ -25,44 +25,48 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
-#ifdef TRTIS_ENABLE_TRACING
-
-#include <vector>
-#include "src/core/server_status.h"
-#include "src/core/status.h"
+#include <atomic>
+#include <memory>
+#include <string>
+#include "src/core/api.pb.h"
 #include "src/core/trtserver.h"
 
 namespace nvidia { namespace inferenceserver {
 
 //
-// A trace.
+// Singleton manager for tracing
 //
-class Trace {
+class TraceManager {
  public:
-  static Status Create(
-      TRTSERVER_Trace_Level level, TRTSERVER_TraceActivityFn_t activity_fn,
-      void* activity_userp, std::unique_ptr<Trace>* trace)
-  {
-    trace->reset(new Trace(level, activity_fn, activity_userp));
-    return Status::Success;
-  }
+  // Create the singlton trace manager that delivers trace information
+  // to the specified host:port.
+  static TRTSERVER_Error* Create(const std::string& hostname, uint32_t port);
 
-  void Report(const std::shared_ptr<ModelInferStats>& infer_stats);
+  // Set the trace level and sampling rate.
+  static TRTSERVER_Error* SetLevel(TRTSERVER_Trace_Level level);
+  static TRTSERVER_Error* SetRate(uint32_t rate);
+
+  // Return a trace object that should be used to collected trace
+  // activities for an inference request. Return nullptr if no tracing
+  // should occur.
+  static TRTSERVER_Trace* SampleTrace(
+      const std::string& model_name, int64_t model_version,
+      const InferRequestHeader& request_header);
 
  private:
-  Trace(
-      TRTSERVER_Trace_Level level, TRTSERVER_TraceActivityFn_t activity_fn,
-      void* activity_userp)
-      : level_(level), activity_fn_(activity_fn),
-        activity_userp_(activity_userp)
-  {
-  }
+  TraceManager(const std::string& hostname, uint32_t port);
 
-  const TRTSERVER_Trace_Level level_;
-  TRTSERVER_TraceActivityFn_t activity_fn_;
-  void* activity_userp_;
+  // Unfortunately we need manager to be a singleton because the
+  // underlying zipkin library uses singletons for the trace
+  // objects... not sure why they did that...
+  static std::unique_ptr<TraceManager> singleton_;
+
+  // The trace level and sampling rate.
+  TRTSERVER_Trace_Level level_;
+  uint32_t rate_;
+
+  // Atomically incrementing counter used to implement sampling rate.
+  std::atomic<uint64_t> sample_;
 };
 
 }}  // namespace nvidia::inferenceserver
-
-#endif  // TRTIS_ENABLE_TRACING

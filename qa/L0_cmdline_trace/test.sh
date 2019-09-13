@@ -33,7 +33,7 @@ TRACE_COLLECTOR_ARGS="-v"
 TRACE_COLLECTOR_LOG="./trace_collector.log"
 
 SERVER=/opt/tensorrtserver/bin/trtserver
-SERVER_ARGS="--trace-host=localhost --model-repository=`pwd`/models"
+SERVER_ARGS="--trace-host=localhost --trace-level=MIN --trace-rate=1 --model-repository=`pwd`/models"
 SERVER_LOG="./inference_server.log"
 source ../common/util.sh
 

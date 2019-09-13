@@ -176,18 +176,35 @@ message TraceControlRequest
   //@@
   message TraceEnable
   {
-    //@@    .. cpp:var:: uint32 level
+    //@@    .. cpp:enum:: TraceLevel
     //@@
-    //@@       Set the trace level.
+    //@@       Trace levels
     //@@
-    //@@         0: Disable tracing.
+    enum TraceLevel {
+      //@@      .. cpp:enumerator:: TraceLevel::DISABLED = 0
+      //@@
+      //@@         Disable tracing.
+      //@@
+      DISABLED = 0;
+
+      //@@      .. cpp:enumerator:: TraceLevel::MIN = 1
+      //@@
+      //@@         Minimal tracing.
+      //@@
+      MIN = 1;
+
+      //@@      .. cpp:enumerator:: TraceLevel::MAX = 2
+      //@@
+      //@@         Maximal tracing.
+      //@@
+      MAX = 2;
+    }
+
+    //@@    .. cpp:var:: TraceLevel level
     //@@
-    //@@         1: Minimal tracing, trace only overall request, queue
-    //@@            and compute.
+    //@@       The trace level.
     //@@
-    //@@         2: Full tracing, minimal tracing plus details.
-    //@@
-    uint32 level = 1;
+    TraceLevel level = 1;
 
     //@@    .. cpp:var:: uint32 sample_rate
     //@@

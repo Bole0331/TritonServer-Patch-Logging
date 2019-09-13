@@ -74,7 +74,9 @@ class GRPCServer {
   std::unique_ptr<grpc::ServerCompletionQueue> stream_infer_cq_;
   std::unique_ptr<grpc::ServerCompletionQueue> modelcontrol_cq_;
   std::unique_ptr<grpc::ServerCompletionQueue> shmcontrol_cq_;
+#ifdef TRTIS_ENABLE_TRACING
   std::unique_ptr<grpc::ServerCompletionQueue> tracecontrol_cq_;
+#endif  // TRTIS_ENABLE_TRACING
 
   grpc::ServerBuilder grpc_builder_;
   std::unique_ptr<grpc::Server> grpc_server_;
@@ -85,7 +87,9 @@ class GRPCServer {
   std::unique_ptr<HandlerBase> stream_infer_handler_;
   std::unique_ptr<HandlerBase> modelcontrol_handler_;
   std::unique_ptr<HandlerBase> shmcontrol_handler_;
+#ifdef TRTIS_ENABLE_TRACING
   std::unique_ptr<HandlerBase> tracecontrol_handler_;
+#endif  // TRTIS_ENABLE_TRACING
 
   GRPCService::AsyncService service_;
   bool running_;

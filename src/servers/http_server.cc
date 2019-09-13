@@ -38,6 +38,10 @@
 #include "src/core/trtserver.h"
 #include "src/servers/common.h"
 
+#ifdef TRTIS_ENABLE_TRACING
+#include "src/servers/zipkin_tracer.h"
+#endif  // TRTIS_ENABLE_TRACING
+
 namespace nvidia { namespace inferenceserver {
 
 // Generic HTTP server using evhtp
@@ -236,8 +240,8 @@ class HTTPAPIServer : public HTTPServerImpl {
     ~InferRequest() = default;
 
     static void InferComplete(
-        TRTSERVER_Server* server, TRTSERVER_InferenceResponse* response,
-        void* userp);
+        TRTSERVER_Server* server, TRTSERVER_Trace* trace,
+        TRTSERVER_InferenceResponse* response, void* userp);
     evhtp_res FinalizeResponse(TRTSERVER_InferenceResponse* response);
 
     std::unique_ptr<EVBufferPair> response_pair_;
@@ -937,16 +941,32 @@ HTTPAPIServer::HandleInfer(evhtp_request_t* req, const std::string& infer_uri)
 
       response_pair->first = req->buffer_out;
       infer_request->response_pair_.reset(response_pair);
-      // response_pair->op_shm_map_ = output_shm_map;
+
+      // Get the trace object to use for this request. If nullptr then
+      // no tracing will be performed.
+      TRTSERVER_Trace* trace = nullptr;
+#ifdef TRTIS_ENABLE_TRACING
+      trace =
+          TraceManager::SampleTrace(model_name, model_version, request_header);
+#endif  // TRTIS_ENABLE_TRACING
 
       err = TRTSERVER_ServerInferAsync(
-          server_.get(), request_provider, allocator_,
+          server_.get(), trace, request_provider, allocator_,
           reinterpret_cast<void*>(response_pair), InferRequest::InferComplete,
           reinterpret_cast<void*>(infer_request));
       if (err != nullptr) {
         delete infer_request;
         infer_request = nullptr;
       }
+
+#ifdef TRTIS_ENABLE_TRACING
+      // If error then the trace object will not be used and we can
+      // just delete it.
+      if (err != nullptr) {
+        LOG_IF_ERR(TRTSERVER_TraceDelete(trace), "deleting trace");
+        trace = nullptr;
+      }
+#endif  // TRTIS_ENABLE_TRACING
 
       // The request provider can be deleted immediately after the
       // ServerInferAsync call returns.
@@ -1013,8 +1033,8 @@ HTTPAPIServer::InferRequest::InferRequest(
 
 void
 HTTPAPIServer::InferRequest::InferComplete(
-    TRTSERVER_Server* server, TRTSERVER_InferenceResponse* response,
-    void* userp)
+    TRTSERVER_Server* server, TRTSERVER_Trace* trace,
+    TRTSERVER_InferenceResponse* response, void* userp)
 {
   HTTPAPIServer::InferRequest* infer_request =
       reinterpret_cast<HTTPAPIServer::InferRequest*>(userp);
@@ -1024,6 +1044,7 @@ HTTPAPIServer::InferRequest::InferComplete(
     evthr_defer(infer_request->thread_, BADReplyCallback, infer_request->req_);
   }
 
+  LOG_IF_ERR(TRTSERVER_TraceDelete(trace), "deleting trace");
   LOG_IF_ERR(
       TRTSERVER_InferenceResponseDelete(response), "deleting HTTP response");
 }

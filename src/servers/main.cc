@@ -28,7 +28,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <algorithm>
-#include <chrono>
+#include <cctype>
 #include <condition_variable>
 #include <csignal>
 #include <iostream>
@@ -41,6 +41,10 @@
 #include "src/core/trtserver.h"
 #include "src/servers/common.h"
 #include "src/servers/shared_memory_block_manager.h"
+
+#ifdef TRTIS_ENABLE_TRACING
+#include "src/servers/zipkin_tracer.h"
+#endif  // TRTIS_ENABLE_TRACING
 
 #ifdef TRTIS_ENABLE_GPU
 static_assert(
@@ -101,7 +105,7 @@ int32_t metrics_port_ = 8002;
 #ifdef TRTIS_ENABLE_TRACING
 std::string trace_host_;
 int32_t trace_port_ = 9411;
-int32_t trace_level_ = 0;  // disabled
+TRTSERVER_Trace_Level trace_level_ = TRTSERVER_TRACE_LEVEL_DISABLED;
 int32_t trace_rate_ = 1000;
 #endif  // TRTIS_ENABLE_TRACING
 
@@ -261,9 +265,8 @@ std::vector<Option> options_{
      "Set the port on the server where trace data should be sent. Default is "
      "9411. Valid only if --trace-host is also given."},
     {OPTION_TRACE_LEVEL, "trace-level",
-     "Set the trace level. (0) Disable tracing, (1) Minimal tracing, trace "
-     "only overall request, queue and compute, (2) Full tracing, minimal "
-     "tracing plus details. Valid only if --trace-host is also given."},
+     "Set the trace level. OFF to disable tracing, MIN for minimal tracing, "
+     "MAX for maximal tracing. Valid only if --trace-host is also given."},
     {OPTION_TRACE_RATE, "trace-rate",
      "Set the trace sampling rate. Default is 1000. Valid only if --trace-host "
      "is also given."},
@@ -555,25 +558,13 @@ StartTracing(const std::shared_ptr<TRTSERVER_Server>& server)
 
   // Configure tracing if host is specified.
   if (!trace_host_.empty()) {
-    TRTSERVER_TraceOptions* options = nullptr;
-    err = TRTSERVER_TraceOptionsNew(&options);
+    err =
+        nvidia::inferenceserver::TraceManager::Create(trace_host_, trace_port_);
     if (err == nullptr) {
-      TRTSERVER_TraceOptionsSetHost(options, trace_host_.c_str());
-      TRTSERVER_TraceOptionsSetPort(options, trace_port_);
-      err = TRTSERVER_ServerTraceConfigure(server.get(), options);
-
-      TRTSERVER_Error* del_err = TRTSERVER_TraceOptionsDelete(options);
-      if (del_err != nullptr) {
-        LOG_ERROR << "failed to delete trace options: "
-                  << TRTSERVER_ErrorMessage(del_err);
-        TRTSERVER_ErrorDelete(del_err);
+      err = nvidia::inferenceserver::TraceManager::SetRate(trace_rate_);
+      if (err == nullptr) {
+        err = nvidia::inferenceserver::TraceManager::SetLevel(trace_level_);
       }
-    }
-
-    // Set the initial level and rate.
-    if (err == nullptr) {
-      err = TRTSERVER_ServerSetTraceLevel(
-          server.get(), trace_level_, trace_rate_);
     }
   }
 
@@ -599,12 +590,16 @@ Usage()
 }
 
 bool
-ParseBoolOption(const std::string arg)
+ParseBoolOption(std::string arg)
 {
-  if ((arg == "true") || (arg == "True") || (arg == "1")) {
+  std::transform(arg.begin(), arg.end(), arg.begin(), [](unsigned char c) {
+    return std::tolower(c);
+  });
+
+  if ((arg == "true") || (arg == "1")) {
     return true;
   }
-  if ((arg == "false") || (arg == "False") || (arg == "0")) {
+  if ((arg == "false") || (arg == "0")) {
     return false;
   }
 
@@ -626,17 +621,45 @@ ParseFloatOption(const std::string arg)
 }
 
 int
-ParseIntBoolOption(const std::string arg)
+ParseIntBoolOption(std::string arg)
 {
-  if ((arg == "true") || (arg == "True")) {
+  std::transform(arg.begin(), arg.end(), arg.begin(), [](unsigned char c) {
+    return std::tolower(c);
+  });
+
+  if (arg == "true") {
     return 1;
   }
-  if ((arg == "false") || (arg == "False")) {
+  if (arg == "false") {
     return 0;
   }
 
   return ParseIntOption(arg);
 }
+
+#ifdef TRTIS_ENABLE_TRACING
+TRTSERVER_Trace_Level
+ParseTraceLevelOption(std::string arg)
+{
+  std::transform(arg.begin(), arg.end(), arg.begin(), [](unsigned char c) {
+    return std::tolower(c);
+  });
+
+  if ((arg == "false") || (arg == "off")) {
+    return TRTSERVER_TRACE_LEVEL_DISABLED;
+  }
+  if ((arg == "true") || (arg == "on") || (arg == "min")) {
+    return TRTSERVER_TRACE_LEVEL_MIN;
+  }
+  if (arg == "max") {
+    return TRTSERVER_TRACE_LEVEL_MAX;
+  }
+
+  LOG_ERROR << "invalid value for trace level option: " << arg;
+  LOG_ERROR << Usage();
+  exit(1);
+}
+#endif  // TRTIS_ENABLE_TRACING
 
 struct VgpuOption {
   int gpu_device_;
@@ -736,7 +759,7 @@ Parse(TRTSERVER_ServerOptions* server_options, int argc, char** argv)
 #ifdef TRTIS_ENABLE_TRACING
   std::string trace_host = trace_host_;
   int32_t trace_port = trace_port_;
-  int32_t trace_level = trace_level_;
+  TRTSERVER_Trace_Level trace_level = trace_level_;
   int32_t trace_rate = trace_rate_;
 #endif  // TRTIS_ENABLE_TRACING
 
@@ -846,7 +869,7 @@ Parse(TRTSERVER_ServerOptions* server_options, int argc, char** argv)
         trace_port = ParseIntOption(optarg);
         break;
       case OPTION_TRACE_LEVEL:
-        trace_level = ParseIntOption(optarg);
+        trace_level = ParseTraceLevelOption(optarg);
         break;
       case OPTION_TRACE_RATE:
         trace_rate = ParseIntOption(optarg);
