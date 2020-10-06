@@ -51,7 +51,7 @@ FLAGS = None
 # container-version -> (ort version, ort openvino version)
 CONTAINER_VERSION_MAP = {
     '20.08': ('1.4.0', '2020.2'),
-    '20.09': ('1.5.1', '2020.4'), # version for release ('1.4.0', '2020.2')
+    '20.09': ('1.5.1', '2020.4'),  # version for release ('1.4.0', '2020.2')
     '20.10': ('1.5.1', '2020.4')
 }
 
