@@ -28,13 +28,10 @@
 Triton Inference Server
 =======================
 
-.. ifconfig:: "dev" in release
-
-   .. warning::
-     You are currently viewing unstable developer preview
-     of the documentation. To see the documentation for the latest
-     stable release click `here
-     <https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html>`_.
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
 
 .. include:: ../README.rst
    :start-after: overview-begin-marker-do-not-remove

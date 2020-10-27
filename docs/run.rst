@@ -30,6 +30,11 @@
 Running Triton
 ==============
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 For best performance the Triton Inference Server should be run on a
 system that contains Docker, nvidia-docker, CUDA and one or more
 supported GPUs, as explained in

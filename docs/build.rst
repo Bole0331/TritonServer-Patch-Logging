@@ -30,6 +30,11 @@
 Building
 ========
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 The Triton Inference Server and the client libraries and examples can
 be built using either Docker or CMake. The procedure for each is
 different and is detailed in the corresponding sections below.

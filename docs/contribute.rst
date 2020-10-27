@@ -28,6 +28,11 @@
 Contributing
 ============
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 Contributions to Triton Inference Server are more than welcome. To
 contribute make a pull request and follow the guidelines outlined in
 the `CONTRIBUTING

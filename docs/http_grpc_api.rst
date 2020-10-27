@@ -30,6 +30,11 @@
 HTTP/REST and GRPC API
 ======================
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 The Triton Inference Server exposes both HTTP/REST and GRPC endpoints
 based on `KFServing standard inference protocols
 <https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_

@@ -28,6 +28,11 @@
 Custom Operations
 =================
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 Modeling frameworks that allow custom operations are partially
 supported by the Triton Inference Server. Custom operations can be
 added to Triton at build time or at startup and are made available to
@@ -136,8 +141,8 @@ seriously, if there are custom layer name conflicts across multiple
 shared libraries or the handles used to register them in PyTorch there
 is currently no way to handle it.
 
-Starting with the 20.07 release of Triton the `TorchVision operations<https://github.com/pytorch/vision>`_ 
-will be included with the PyTorch backend and hence they do not have 
+Starting with the 20.07 release of Triton the `TorchVision operations<https://github.com/pytorch/vision>`_
+will be included with the PyTorch backend and hence they do not have
 to be explicitly added as custom operations.
 
 When building the custom operations shared library it is important to
@@ -162,7 +167,7 @@ field. For example, if you follow `this example
 <https://github.com/microsoft/onnxruntime/blob/master/onnxruntime/test/shared_lib/test_inference.cc>`_
 in the `microsoft/onnxruntime<https://github.com/microsoft/onnxruntime>`_
 repository and your ONNXRuntime custom operations are compiled into libonnxcustom.so,
-adding the following to the model configuraion of your model makes those 
+adding the following to the model configuraion of your model makes those
 operations available to that specific ONNX model::
 
   $ model_operations { op_library_filename: "/path/to/libonnxcustom.so" }

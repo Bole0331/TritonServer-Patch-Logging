@@ -30,6 +30,11 @@
 Library API
 ===========
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 The Triton Inference Server provides a backwards-compatible C API that
 allows Triton to be linked directly into a C/C++ application. The API
 is documented in `tritonserver.h

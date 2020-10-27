@@ -30,6 +30,11 @@
 perf\_analyzer
 ------------
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 A critical part of optimizing the inference performance of your model
 is being able to measure changes in performance as you experiment with
 different optimization strategies. The *perf\_analyzer* application

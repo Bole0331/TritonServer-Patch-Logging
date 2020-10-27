@@ -30,6 +30,11 @@
 Model Analyzer
 --------------
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 The Triton Model Analyzer is a tool that uses :ref:`perf\_analyzer
 <section-perf-analyzer>` to apply load to your model while measure GPU
 memory and compute utilization. The Model Analyzer is specifically

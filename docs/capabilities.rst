@@ -30,6 +30,11 @@
 Capabilities
 ============
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 The following table shows which backends support each major inference
 server feature. See :ref:`section-datatypes` for information on
 data-types supported by each backend.

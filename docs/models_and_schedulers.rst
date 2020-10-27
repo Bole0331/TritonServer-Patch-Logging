@@ -30,6 +30,11 @@
 Models And Schedulers
 =====================
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 By incorporating backends for :ref:`multiple frameworks
 <section-framework-model-definition>` and also allowing backends with
 :ref:`custom implementations <section-backends>`, the Triton Inference

@@ -30,6 +30,11 @@
 Server Trace
 ------------
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 Triton includes that capability to generate a detailed trace for
 individual inference requests. If you are :ref:`building your own
 inference server <section-building-the-server-with-cmake>` you must

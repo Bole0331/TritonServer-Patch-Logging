@@ -30,6 +30,11 @@
 Quickstart
 ==========
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 The Triton Inference Server is available in two ways:
 
 * As a pre-built Docker container available from the `NVIDIA GPU Cloud

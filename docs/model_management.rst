@@ -30,6 +30,11 @@
 Model Management
 ================
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 Triton operates in one of three model control modes: NONE, POLL, or
 EXPLICIT.
 

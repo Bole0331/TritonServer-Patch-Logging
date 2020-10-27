@@ -30,6 +30,11 @@
 Optimization
 ============
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 The Triton Inference Server has many features that you can use to
 decrease latency and increase throughput for your model. This section
 discusses these features and demonstrates how you can use them to

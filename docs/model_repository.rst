@@ -30,6 +30,11 @@
 Model Repository
 ================
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 The Triton Inference Server serves models from one or more model
 repositories that are specified when the server is stated. While
 Triton is running, the models being served can be modified as

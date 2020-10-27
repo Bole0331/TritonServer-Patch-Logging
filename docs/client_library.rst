@@ -30,6 +30,11 @@
 Client Libraries
 ================
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 The *client libraries* make it easy to communicate with Triton from
 your C++ or Python application. Using these libraries you can send
 either HTTP/REST or GRPC requests to Triton to check status or health

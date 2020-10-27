@@ -30,6 +30,11 @@
 Model Configuration
 ===================
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 Each model in a :ref:`section-model-repository` must include a model
 configuration that provides required and optional information about
 the model. Typically, this configuration is provided in a config.pbtxt

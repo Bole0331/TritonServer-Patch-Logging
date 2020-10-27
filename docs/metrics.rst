@@ -30,6 +30,11 @@
 Metrics
 =======
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 The Triton Inference server provides `Prometheus
 <https://prometheus.io/>`_ metrics indicating GPU and request
 statistics. By default, these metrics are available at

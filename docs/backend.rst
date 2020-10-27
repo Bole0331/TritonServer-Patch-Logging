@@ -30,6 +30,11 @@
 Backends
 ========
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 A *backend* is the implementation that executes a model. A backend can
 be a wrapper around a deep learning framework, like PyTorch,
 TensorFlow, TensorRT or ONNX. Or a backend can be custom C/C++ logic

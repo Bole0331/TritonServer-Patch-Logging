@@ -30,6 +30,11 @@
 FAQ
 ===
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 What are the advantages of running a model with Triton Inference Server compared to running directly using the model's framework API?
 -------------------------------------------------------------------------------------------------------------------------------------
 

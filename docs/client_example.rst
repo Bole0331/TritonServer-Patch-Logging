@@ -30,6 +30,11 @@
 Client Examples
 ===============
 
+.. warning::
+   You are currently viewing an out-of-date version of the Triton documentation.
+   For the latest documentation visit the `Triton documentation on GitHub
+   <https://github.com/triton-inference-server/server#documentation>`_.
+
 After you have Triton :ref:`running <section-running-triton>` you can
 send inference and other requests to it using the :ref:`HTTP/REST or
 GRPC protocols <section-http-and-grpc-api>` from your *client*
