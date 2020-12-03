@@ -30,6 +30,7 @@
 #include "src/core/logging.h"
 #include "src/core/metric_model_reporter.h"
 #include "src/core/nvtx.h"
+#include "src/core/sync_queue.h"
 
 namespace nvidia { namespace inferenceserver {
 
@@ -1018,19 +1019,49 @@ BackendInputCollector::FlushPendingPinned(
   // the pinned memory.
   else {  // pinned_memory_type == TRITONSERVER_MEMORY_CPU_PINNED
     bool cuda_used = false;
+    bool* cuda_used_ptr = &cuda_used;
     size_t offset = 0;
-    for (auto& pr : pending_pinned_inputs_) {
-      std::unique_ptr<InferenceResponse>* response = pr.first;
-      const InferenceRequest::Input* request_input = pr.second;
+    size_t stride = (pending_pinned_inputs_.size() + AsyncWorkQueue::WorkerCount() -1) / AsyncWorkQueue::WorkerCount();
+    auto pending_it = pending_pinned_inputs_.begin();
+    while (pending_it != pending_pinned_inputs_.end()) {
+      auto end_it = pending_it;
+      auto next_offset = offset;
+      for (size_t idx = 0; idx < stride; idx++) {
+        next_offset += (*end_it).second->Data()->TotalByteSize();
+        end_it++;
+        if (end_it == pending_pinned_inputs_.end()) {
+          break;
+        }
+      }
 
-      cuda_used |= SetFixedSizeInputTensor(
-          request_input, offset, pinned_buffer, pending_pinned_byte_size_,
-          pinned_memory_type, pinned_memory_id, TRITONSERVER_MEMORY_CPU_PINNED,
-          response);
-      offset += request_input->Data()->TotalByteSize();
+      AsyncWorkQueue::AddTask([this, cuda_used_ptr,
+            offset, pinned_buffer, pinned_memory_type, pinned_memory_id,
+            pending_it, end_it]() mutable {
+        for (; pending_it != end_it; pending_it++) {
+          std::unique_ptr<InferenceResponse>* response = (*pending_it).first;
+          const InferenceRequest::Input* request_input = (*pending_it).second;
+          if(SetFixedSizeInputTensor(
+              request_input, offset, pinned_buffer, pending_pinned_byte_size_,
+              pinned_memory_type, pinned_memory_id, TRITONSERVER_MEMORY_CPU_PINNED,
+              response)) {
+              *cuda_used_ptr = true;
+          }
+       }
+        completion_queue_.Put(true);
+      });
+      offset = next_offset;
+      pending_it = end_it;
     }
 
+    // Sync previous async tasks if any. This sync is require because the below
+    // CPU-PINNED to GPU copy.
+    // FIXME: Can the CPU-PINNED to GPU copy be deferred to Finalize() and
+    // remove this sync?
+    for (size_t i = 0; i < async_task_count_; i++) {
+      completion_queue_.Get();
+    }
     cuda_copy |= cuda_used;
+    async_task_count_ = 0;
 
     // If the copy was not async (i.e. if request input was in CPU so
     // a CPU->CPU-PINNED copy was performed above), then the pinned
