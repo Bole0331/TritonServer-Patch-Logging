@@ -1046,11 +1046,13 @@ BackendInputCollector::FlushPendingPinned(
               response)) {
               *cuda_used_ptr = true;
           }
+          offset += request_input->Data()->TotalByteSize();
        }
         completion_queue_.Put(true);
       });
       offset = next_offset;
       pending_it = end_it;
+      async_task_count_++;
     }
 
     // Sync previous async tasks if any. This sync is require because the below
@@ -1074,7 +1076,7 @@ BackendInputCollector::FlushPendingPinned(
     // finalize after we have waited for all async copies to complete.
     if (!cuda_used) {
       Status status = CopyBuffer(
-          "pinned buffer", pinned_memory_type, pinned_memory_id,
+          "pinned input buffer H2D", pinned_memory_type, pinned_memory_id,
           tensor_memory_type, tensor_memory_type_id, pending_pinned_byte_size_,
           pinned_buffer, tensor_buffer + pending_pinned_offset_, stream_,
           &cuda_used);
