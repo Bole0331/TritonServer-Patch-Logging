@@ -30,6 +30,7 @@
 #include <memory>
 #include <mutex>
 #include "src/core/status.h"
+#include "src/core/sync_queue.h"
 
 namespace nvidia { namespace inferenceserver {
 
@@ -82,6 +83,8 @@ class PinnedMemoryManager {
   void* pinned_memory_buffer_;
   std::mutex buffer_mtx_;
   boost::interprocess::managed_external_buffer managed_pinned_memory_;
+
+  SyncQueue<void*> memory_blocks_;
 };
 
 }}  // namespace nvidia::inferenceserver
