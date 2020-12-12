@@ -45,20 +45,18 @@ namespace nvidia { namespace inferenceserver {
 class AsyncWorkQueue {
  public:
   // Start 'worker_count' number of worker threads.
-  static Status Initialize(size_t worker_count);
+  Status Create(std::unique_ptr<AsyncWorkQueue>* queue, size_t worker_count);
 
   // Get the number of worker threads.
-  static size_t WorkerCount() {return GetSingleton()->worker_threads_.size();}
+  size_t WorkerCount() {return worker_threads_.size();}
 
   // Add a 'task' to the queue. The function will take ownership of 'task'.
   // Therefore std::move should be used when calling AddTask.
-  static void AddTask(const std::function<void(void)>&& task);
+  void AddTask(const std::function<void(void)>&& task);
 
  private:
-  AsyncWorkQueue() = default;
+  AsyncWorkQueue(size_t worker_count);
   ~AsyncWorkQueue();
-  static AsyncWorkQueue* GetSingleton();
-  static void InitializeThread();
 
   std::vector<std::unique_ptr<std::thread>> worker_threads_;
   SyncQueue<std::function<void(void)>> task_queue_;

@@ -145,6 +145,8 @@ PlanBackend::Context::Context(
     events_[idx].ready_for_output_ = nullptr;
   }
   support_batching_ = (max_batch_size != NO_BATCHING);
+  // FIXME hard-coded value
+  AsyncWorkQueue::Create(&async_work_queue_, 8);
 }
 
 PlanBackend::Context::~Context()
@@ -2430,7 +2432,7 @@ PlanBackend::Context::Run(
   std::vector<int64_t> input_dims{(int64_t)payload_->total_batch_size_};
   BackendInputCollector collector(
       payload_->requests_, &payload_->responses_, enable_pinned_input_,
-      input_copy_stream_, events_[next_set_].input_ready_);
+      input_copy_stream_, events_[next_set_].input_ready_, async_work_queue_.get());
   for (int io_index = 0; io_index < num_expected_bindings_; ++io_index) {
     auto& io_binding_info = io_binding_infos_[io_index];
     int binding_index = binding_offset + io_index;

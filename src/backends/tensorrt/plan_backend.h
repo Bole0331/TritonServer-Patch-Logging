@@ -28,6 +28,7 @@
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>
 #include <thread>
+#include "src/core/async_work_queue.h"
 #include "src/core/backend.h"
 #include "src/core/backend_context.h"
 #include "src/core/metric_model_reporter.h"
@@ -399,6 +400,8 @@ class PlanBackend : public InferenceBackend {
 
     // The request details of the ongoing model execution
     std::unique_ptr<Payload> payload_;
+
+    std::unique_ptr<AsyncWorkQueue> async_work_queue_;
   };
 
   // CUDA engine shared across all model instances on the same device.

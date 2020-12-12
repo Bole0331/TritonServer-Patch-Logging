@@ -136,13 +136,6 @@ InferenceServer::Init()
     ready_state_ = ServerReadyState::SERVER_FAILED_TO_INITIALIZE;
     return status;
   }
-  // Always initialize async work queue for now
-  status = AsyncWorkQueue::Initialize(
-      std::max((uint32_t)1, buffer_manager_thread_count_));
-  if (!status.IsOk()) {
-    ready_state_ = ServerReadyState::SERVER_FAILED_TO_INITIALIZE;
-    return status;
-  }
 
   PinnedMemoryManager::Options options(pinned_memory_pool_size_);
   status = PinnedMemoryManager::Create(options);

@@ -37,52 +37,46 @@ namespace nvidia { namespace inferenceserver {
 AsyncWorkQueue::~AsyncWorkQueue()
 {
   for (size_t cnt = 0; cnt < worker_threads_.size(); cnt++) {
-    GetSingleton()->task_queue_.Put(nullptr);
+    task_queue_.Put(nullptr);
   }
   for (const auto& worker_thread : worker_threads_) {
     worker_thread->join();
   }
 }
 
-AsyncWorkQueue*
-AsyncWorkQueue::GetSingleton()
-{
-  static AsyncWorkQueue singleton;
-  return &singleton;
-}
-
 Status
-AsyncWorkQueue::Initialize(size_t worker_count)
+AsyncWorkQueue::Create(std::unique_ptr<AsyncWorkQueue>* queue, size_t worker_count)
 {
   if (worker_count < 1) {
     return Status(
         Status::Code::INVALID_ARG,
         "Async work queue must be initialized with positive 'worker_count'");
   }
-  for (size_t cnt = 0; cnt < worker_count; cnt++) {
-    GetSingleton()->worker_threads_.push_back(std::unique_ptr<std::thread>(
-        new std::thread([] { InitializeThread(); })));
-  }
+  queue->reset(new AsyncWorkQueue(worker_count));
   return Status::Success;
+}
+
+AsyncWorkQueue::AsyncWorkQueue(size_t worker_count)
+{
+  for (size_t cnt = 0; cnt < worker_count; cnt++) {
+    worker_threads_.push_back(std::unique_ptr<std::thread>(
+        new std::thread([this] {
+      while (true) {
+        auto task = task_queue_.Get();
+        if (task != nullptr) {
+          task();
+        } else {
+          break;
+        }
+      }
+    })));
+  }
 }
 
 void
 AsyncWorkQueue::AddTask(const std::function<void(void)>&& task)
 {
-  GetSingleton()->task_queue_.Put(std::move(task));
-}
-
-void
-AsyncWorkQueue::InitializeThread()
-{
-  while (true) {
-    auto task = GetSingleton()->task_queue_.Get();
-    if (task != nullptr) {
-      task();
-    } else {
-      break;
-    }
-  }
+  task_queue_.Put(std::move(task));
 }
 
 }}  // namespace nvidia::inferenceserver
