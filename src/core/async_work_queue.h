@@ -47,7 +47,7 @@ class AsyncWorkQueue {
   ~AsyncWorkQueue();
 
   // Start 'worker_count' number of worker threads.
-  Status Create(std::unique_ptr<AsyncWorkQueue>* queue, size_t worker_count);
+  static Status Create(std::unique_ptr<AsyncWorkQueue>* queue, size_t worker_count);
 
   // Get the number of worker threads.
   size_t WorkerCount() {return worker_threads_.size();}
