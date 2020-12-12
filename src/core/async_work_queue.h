@@ -44,6 +44,8 @@ namespace nvidia { namespace inferenceserver {
 
 class AsyncWorkQueue {
  public:
+  ~AsyncWorkQueue();
+
   // Start 'worker_count' number of worker threads.
   Status Create(std::unique_ptr<AsyncWorkQueue>* queue, size_t worker_count);
 
@@ -56,7 +58,6 @@ class AsyncWorkQueue {
 
  private:
   AsyncWorkQueue(size_t worker_count);
-  ~AsyncWorkQueue();
 
   std::vector<std::unique_ptr<std::thread>> worker_threads_;
   SyncQueue<std::function<void(void)>> task_queue_;
