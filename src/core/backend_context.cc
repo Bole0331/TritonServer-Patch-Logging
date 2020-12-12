@@ -1020,7 +1020,7 @@ BackendInputCollector::FlushPendingPinned(
   else {  // pinned_memory_type == TRITONSERVER_MEMORY_CPU_PINNED
     bool cuda_used = false;
     size_t offset = 0;
-    if (async_task_count_ == nullptr) {
+    if (async_work_queue_ == nullptr) {
       for (auto& pr : pending_pinned_inputs_) {
         std::unique_ptr<InferenceResponse>* response = pr.first;
         const InferenceRequest::Input* request_input = pr.second;
@@ -1033,7 +1033,7 @@ BackendInputCollector::FlushPendingPinned(
       }
     } else {
       bool* cuda_used_ptr = &cuda_used;
-      size_t stride = (pending_pinned_inputs_.size() + async_task_count_->WorkerCount() -1) / async_task_count_->WorkerCount();
+      size_t stride = (pending_pinned_inputs_.size() + async_work_queue_->WorkerCount() -1) / async_work_queue_->WorkerCount();
       auto pending_it = pending_pinned_inputs_.begin();
       while (pending_it != pending_pinned_inputs_.end()) {
         auto end_it = pending_it;
@@ -1046,7 +1046,7 @@ BackendInputCollector::FlushPendingPinned(
           }
         }
 
-        async_task_count_->AddTask([this, cuda_used_ptr,
+        async_work_queue_->AddTask([this, cuda_used_ptr,
               offset, pinned_buffer, pinned_memory_type, pinned_memory_id,
               pending_it, end_it]() mutable {
           for (; pending_it != end_it; pending_it++) {
