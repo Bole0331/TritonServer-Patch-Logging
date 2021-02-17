@@ -2940,6 +2940,13 @@ PlanBackend::Context::Run(
           TRITONSERVER_MEMORY_GPU, gpu_device_);
     }
   }
+
+  // Don't want to run too far ahead
+  auto prev_output_ready_event = premature_batching_ ?
+    events_[(EVENT_SET_COUNT - 1 /* buffer set count % EVENT_SET_COUNT */+ next_set_) % EVENT_SET_COUNT].output_ready_ : nullptr;
+  if (prev_output_ready_event != nullptr) {
+    cudaEventSynchronize(prev_output_ready_event);
+  }
 }
 
 Status

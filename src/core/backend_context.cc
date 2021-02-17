@@ -735,6 +735,10 @@ BackendInputCollector::ProcessBatchInput(
     const size_t buffer_byte_size, const TRITONSERVER_MemoryType memory_type,
     const int64_t memory_type_id)
 {
+  if (buffer_ready_event_ != nullptr) {
+    cudaEventSynchronize(buffer_ready_event_);
+    buffer_ready_event_ = nullptr;
+  }
   char* input_buffer = buffer;
   std::unique_ptr<AllocatedMemory> internal_buffer;
   // Need a CPU buffer for modifying the value
