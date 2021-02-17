@@ -510,6 +510,8 @@ PlanBackend::CreateExecutionContext(
   Context* context = static_cast<Context*>(contexts_.back().get());
   auto context_idx = contexts_.size() - 1;
 
+  context->premature_batching_ = Config().optimization().premature_batching();
+
   // Set the device before preparing the context.
   auto cuerr = cudaSetDevice(gpu_device);
   if (cuerr != cudaSuccess) {
@@ -2153,6 +2155,9 @@ PlanBackend::Run(
     context->next_set_ = (event_set_idx + 1) % context->EVENT_SET_COUNT;
     // Put the details needed by the ProcessResponse thread on the queue
     context->completion_queue_.Put(std::move(context->payload_));
+    if (context->premature_batching_) {
+      available_context_queue_[runner_idx]->Put(next_context_[runner_idx]);
+    }
   }
 
   // Set the next context to be executed on this runner, will block
@@ -2436,10 +2441,13 @@ PlanBackend::Context::Run(
 
   // For each input, concatenate input values from each request into
   // the corresponding binding.
+  // [FIXME] change below to match buffer set count
+  auto prev_input_ready_event = premature_batching_ ?
+    events_[(EVENT_SET_COUNT - 1 /* buffer set count % EVENT_SET_COUNT */+ next_set_) % EVENT_SET_COUNT].ready_for_input_ : nullptr;
   std::vector<int64_t> input_dims{(int64_t)payload_->total_batch_size_};
   payload_->collector_.reset(new BackendInputCollector(
       payload_->requests_, &payload_->responses_, enable_pinned_input_,
-      input_copy_stream_, events_[next_set_].input_ready_));
+      input_copy_stream_, events_[next_set_].input_ready_, prev_input_ready_event));
   for (int io_index = 0; io_index < num_expected_bindings_; ++io_index) {
     auto& io_binding_info = io_binding_infos_[io_index];
     int binding_index = binding_offset + io_index;
@@ -2993,12 +3001,16 @@ PlanBackend::Context::ProcessResponse(
     INFER_STATS_DECL_TIMESTAMP(compute_input_end_ns);
 #endif  // TRITON_ENABLE_STATS
 
-    // The model execution associated with the current context
-    // has consumed the inputs. Put the context back into the available queue
-    // so that it can begin enqueuing new memcpys into the input buffers
-    cudaEventSynchronize(event_set.ready_for_input_);
-    context_queue->Put(context_idx);
-    NVTX_MARKER("plan_input_available");
+    // The context will be placed to context_queue elsewhere
+    // if premature batching is enabled
+    if (!premature_batching_) {
+      // The model execution associated with the current context
+      // has consumed the inputs. Put the context back into the available queue
+      // so that it can begin enqueuing new memcpys into the input buffers
+      cudaEventSynchronize(event_set.ready_for_input_);
+      context_queue->Put(context_idx);
+      NVTX_MARKER("plan_input_available");
+    }
 
 #ifdef TRITON_ENABLE_STATS
     cudaEventSynchronize(event_set.ready_for_output_);

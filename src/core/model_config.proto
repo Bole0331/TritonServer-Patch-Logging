@@ -903,6 +903,17 @@ message ModelOptimizationPolicy
   //@@     Default is true.
   //@@
   PinnedMemoryBuffer output_pinned_memory = 6;
+
+  //@@  .. cpp:var:: bool premature_batching
+  //@@
+  //@@     Start preparing the next batch before the model instance is ready
+  //@@     for the next inference. This option can be used to overlap the
+  //@@     batch preparation with model execution, with the trade-off that
+  //@@     the next batch might be smaller than what it could have been.
+  //@@     Default value is false.
+  //@@     Currently only recognized by TensorRT backend.
+  //@@
+  bool premature_batching = 7;
 }
 
 //@@
