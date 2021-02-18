@@ -32,3 +32,11 @@ void RunGatherKernel(
     const int8_t** input_ptr_buffer, const size_t* byte_size_buffer,
     const size_t* byte_size_offset_buffer, int8_t* output_buffer,
     size_t request_count, cudaStream_t stream);
+
+void RunScatterKernel(
+    const int8_t * input_buffer,
+    const size_t * byte_size_buffer,
+    const size_t * byte_size_offset_buffer,
+    int8_t ** output_ptr_buffer,
+    size_t request_count,
+    cudaStream_t stream);

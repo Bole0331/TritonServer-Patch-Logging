@@ -60,6 +60,34 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void TritonGatherKernel(
   }
 }
 
+__launch_bounds__(THREADBLOCK_SIZE)
+__global__ void TritonScatterKernel(
+    const int8_t * __restrict input_buffer,
+    const size_t * __restrict byte_size_buffer,
+    const size_t * __restrict byte_size_offset_buffer,
+    int8_t ** __restrict output_ptr_buffer)
+{
+  int request_idx = blockIdx.x;
+  int lane_id = threadIdx.x;
+  int8_t * response_output_buffer = output_ptr_buffer[request_idx];
+  int byte_size = byte_size_buffer[request_idx];
+  int byte_size_offset = byte_size_offset_buffer[request_idx];
+
+  const int8_t * input_buffer_with_offset = input_buffer + byte_size_offset;
+  if (((byte_size % 4) == 0) && (((uint64_t)input_buffer_with_offset % 4) == 0) && (((uint64_t)response_output_buffer % 4) == 0)) {
+      int32_t* input_4 = (int32_t*)input_buffer_with_offset;
+      int32_t* output_4 = (int32_t*)response_output_buffer;
+      size_t element_count = byte_size / 4;
+      for(int elem_id = lane_id; elem_id < element_count; elem_id += THREADBLOCK_SIZE) {
+          output_4[elem_id] = input_4[elem_id];
+      }
+  } else {
+    for(int elem_id = lane_id; elem_id < byte_size; elem_id += THREADBLOCK_SIZE) {
+        response_output_buffer[elem_id] = __ldg(input_buffer_with_offset + elem_id);
+    }
+  }
+}
+
 void
 RunGatherKernel(
     const int8_t** input_ptr_buffer, const size_t* byte_size_buffer,
@@ -69,4 +97,19 @@ RunGatherKernel(
   TritonGatherKernel<<<request_count, THREADBLOCK_SIZE, 0, stream>>>(
       input_ptr_buffer, byte_size_buffer, byte_size_offset_buffer,
       output_buffer);
+}
+
+void RunScatterKernel(
+    const int8_t * input_buffer,
+    const size_t * byte_size_buffer,
+    const size_t * byte_size_offset_buffer,
+    int8_t ** output_ptr_buffer,
+    size_t request_count,
+    cudaStream_t stream)
+{
+    TritonScatterKernel<<<request_count,THREADBLOCK_SIZE,0,stream>>>(
+        input_buffer,
+        byte_size_buffer,
+        byte_size_offset_buffer,
+        output_ptr_buffer);
 }

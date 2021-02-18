@@ -220,6 +220,12 @@ BackendResponder::ProcessTensor(
          (pending_pinned_byte_size_ + pending_pinned_offset_))) {
       need_sync_ |= FlushPendingPinned(buffer, memory_type, memory_type_id);
     }
+    if ((pending_copy_kernel_buffer_byte_size_ > 0) &&
+        (tensor_offset != (pending_copy_kernel_buffer_byte_size_ +
+                           pending_copy_kernel_buffer_offset_))) {
+      need_sync_ |= FlushPendingScatterKernel(
+          buffer, memory_type, memory_type_id);
+    }
 
     // Override shape to be correct for this response.
     if (max_batch_size_ != BackendContext::NO_BATCHING) {
@@ -235,7 +241,7 @@ BackendResponder::ProcessTensor(
       response->AddOutput(name, datatype, batchn_shape, &response_output);
       need_sync_ |= SetFixedSizeOutputBuffer(
           &response, response_output, tensor_byte_size, tensor_offset, buffer,
-          memory_type, memory_type_id, use_pinned_memory_type);
+          memory_type, memory_type_id, use_pinned_memory_type, true);
     }
 
     tensor_offset += tensor_byte_size;
@@ -243,6 +249,7 @@ BackendResponder::ProcessTensor(
 
   // Done with the tensor, flush any pending pinned copies.
   need_sync_ |= FlushPendingPinned(buffer, memory_type, memory_type_id);
+  need_sync_ |= FlushPendingScatterKernel(buffer, memory_type, memory_type_id);
 #ifdef TRITON_ENABLE_GPU
   if (need_sync_ && (event_ != nullptr)) {
     cudaEventRecord(event_, stream_);
@@ -282,6 +289,12 @@ BackendResponder::ProcessTensor(
          (pending_pinned_byte_size_ + pending_pinned_offset_))) {
       need_sync_ |= FlushPendingPinned(buffer, memory_type, memory_type_id);
     }
+    if ((pending_copy_kernel_buffer_byte_size_ > 0) &&
+        (tensor_offset != (pending_copy_kernel_buffer_byte_size_ +
+                           pending_copy_kernel_buffer_offset_))) {
+      need_sync_ |= FlushPendingScatterKernel(
+          buffer, memory_type, memory_type_id);
+    }
 
     // Override shape to be correct for this response, with a naive assumption
     // that the dynamic dimension in output is mapped to the same dimension
@@ -306,7 +319,7 @@ BackendResponder::ProcessTensor(
           name, datatype, output_batchn_shape, &response_output);
       need_sync_ |= SetFixedSizeOutputBuffer(
           &response, response_output, tensor_byte_size, tensor_offset, buffer,
-          memory_type, memory_type_id, use_pinned_memory_type);
+          memory_type, memory_type_id, use_pinned_memory_type, true);
     }
 
     tensor_offset += tensor_byte_size;
@@ -314,6 +327,7 @@ BackendResponder::ProcessTensor(
 
   // Done with the tensor, flush any pending pinned copies.
   need_sync_ |= FlushPendingPinned(buffer, memory_type, memory_type_id);
+  need_sync_ |= FlushPendingScatterKernel(buffer, memory_type, memory_type_id);
 #ifdef TRITON_ENABLE_GPU
   if (need_sync_ && (event_ != nullptr)) {
     cudaEventRecord(event_, stream_);
@@ -403,7 +417,8 @@ BackendResponder::SetFixedSizeOutputBuffer(
     const size_t tensor_offset, const char* tensor_buffer,
     const TRITONSERVER_MemoryType tensor_memory_type,
     const int64_t tensor_memory_type_id,
-    const TRITONSERVER_MemoryType use_pinned_memory_type)
+    const TRITONSERVER_MemoryType use_pinned_memory_type,
+    const bool use_kernel)
 {
   void* buffer = nullptr;
   bool cuda_copy = false;
@@ -434,6 +449,24 @@ BackendResponder::SetFixedSizeOutputBuffer(
     pending_pinned_byte_size_ += tensor_byte_size;
     pending_pinned_outputs_.push_back(
         std::make_pair(response, response_output));
+  } else if (use_kernel && (tensor_memory_type == TRITONSERVER_MEMORY_GPU) &&
+        (actual_memory_type != TRITONSERVER_MEMORY_CPU)) {
+    // [FIXME] check if using scatter kernel on the output side is faster,
+    // currently there is not inital result to prove that. 
+    // [FIXME] peer-to-peer is enabled by default, but server can still runs
+    // even if it fails to enable peer-to-peer. In such case, the kernel
+    // can't access memory across device directly.
+    // If the request buffer and the destination buffer are accessible by all
+    // GPUs (i.e. pinned, device), initiate the copy via copy CUDA kernel.
+    // [FIXME] currently only enable for device -> pinned / same device
+    if ((actual_memory_type != TRITONSERVER_MEMORY_GPU) || (actual_memory_type_id == tensor_memory_type_id)) {
+      if (pending_copy_kernel_buffer_byte_size_ == 0) {
+        pending_copy_kernel_buffer_offset_ = tensor_offset;
+      }
+      pending_copy_kernel_buffer_byte_size_ += tensor_byte_size;
+      pending_copy_kernel_outputs_.push_back(
+          std::make_pair(response, response_output));
+    }
   } else {
     // Direct copy without intermediate pinned memory.
     bool cuda_used = false;
@@ -609,10 +642,174 @@ BackendResponder::FlushPendingPinned(
   // Need to hold on to the allocated pinned buffer as there are still
   // copies in flight. Will delete it in finalize.
   if (pinned_memory != nullptr) {
-    pinned_memories_.push_back(std::move(pinned_memory));
+    in_use_memories_.push_back(std::move(pinned_memory));
   }
 
   return cuda_copy;
+}
+
+bool
+BackendResponder::FlushPendingScatterKernel(
+      const char* tensor_buffer,
+      const TRITONSERVER_MemoryType tensor_memory_type,
+      const int64_t tensor_memory_type_id)
+{
+  if (pending_copy_kernel_outputs_.size() == 0) {
+    return false;
+  }
+  auto status = LaunchScatterKernel(
+      tensor_buffer, tensor_memory_type, tensor_memory_type_id);
+  bool cuda_copy = status.IsOk();
+
+  // If kernel can't be launched then just perform a direct copy.
+  if (!status.IsOk()) {
+    size_t offset = 0;
+    for (auto& pr : pending_copy_kernel_outputs_) {
+      std::unique_ptr<InferenceResponse>* response = pr.first;
+      InferenceResponse::Output* response_output = pr.second;
+
+      const void* response_buffer;
+      size_t response_byte_size;
+      TRITONSERVER_MemoryType response_memory_type;
+      int64_t response_memory_type_id;
+      void* userp;
+
+      Status status = response_output->DataBuffer(
+          &response_buffer, &response_byte_size, &response_memory_type,
+          &response_memory_type_id, &userp);
+      if (!status.IsOk()) {
+        LOG_STATUS_ERROR(
+            InferenceResponse::SendWithStatus(
+                std::move(*response), TRITONSERVER_RESPONSE_COMPLETE_FINAL,
+                status),
+            "error sending failure response");
+      } else {
+        bool cuda_used = false;
+        status = CopyBuffer(
+            response_output->Name(), tensor_memory_type, tensor_memory_type_id,
+            response_memory_type, response_memory_type_id, response_byte_size,
+            tensor_buffer + pending_pinned_offset_ + offset,
+            const_cast<void*>(response_buffer), stream_, &cuda_used);
+        cuda_copy |= cuda_used;
+
+        if (!status.IsOk()) {
+          LOG_STATUS_ERROR(
+              InferenceResponse::SendWithStatus(
+                  std::move(*response), TRITONSERVER_RESPONSE_COMPLETE_FINAL,
+                  status),
+              "error sending failure response");
+        }
+      }
+
+      offset += response_byte_size;
+    }
+  }
+
+  // Pending kernel copies are handled...
+  pending_copy_kernel_buffer_byte_size_ = 0;
+  pending_copy_kernel_buffer_offset_ = 0;
+  pending_copy_kernel_outputs_.clear();
+
+  return cuda_copy;
+}
+
+Status
+BackendResponder::LaunchScatterKernel(
+    const char* tensor_buffer, const TRITONSERVER_MemoryType tensor_memory_type,
+    const int64_t tensor_memory_type_id)
+{
+#ifdef TRITON_ENABLE_GPU
+  output_ptr_buffer_host_.emplace_back(new std::vector<int8_t*>());
+  byte_size_buffer_host_.emplace_back(new std::vector<size_t>());
+  byte_size_offset_buffer_host_.emplace_back(new std::vector<size_t>());
+
+  auto& output_ptr_buffer_host = *output_ptr_buffer_host_.back();
+  auto& byte_size_buffer_host = *byte_size_buffer_host_.back();
+  auto& byte_size_offset_buffer_host = *byte_size_offset_buffer_host_.back();
+
+  output_ptr_buffer_host.reserve(pending_copy_kernel_outputs_.size());
+  byte_size_buffer_host.reserve(pending_copy_kernel_outputs_.size());
+  byte_size_offset_buffer_host.reserve(
+      pending_copy_kernel_outputs_.size());
+
+  // placeholder for output parameters
+  auto kernel_buffer_memory_type = TRITONSERVER_MEMORY_CPU;
+  int64_t kernel_buffer_memory_id = 0;
+  size_t buffer_byte_size = 0;
+  void* userp;
+
+  size_t byte_size_offset = 0;
+  for (const auto& response_output : pending_copy_kernel_outputs_) {
+    const auto& output = response_output.second;
+    output_ptr_buffer_host.emplace_back();
+    RETURN_IF_ERROR(output->DataBuffer(
+        (const void**)(&output_ptr_buffer_host.back()),
+        &buffer_byte_size, &kernel_buffer_memory_type,
+        &kernel_buffer_memory_id, &userp));
+
+    byte_size_offset_buffer_host.emplace_back(byte_size_offset);
+    byte_size_buffer_host.emplace_back(buffer_byte_size);
+    byte_size_offset += buffer_byte_size;
+  }
+
+  in_use_memories_.emplace_back(new AllocatedMemory(
+      pending_copy_kernel_outputs_.size() * sizeof(int8_t*),
+      tensor_memory_type, tensor_memory_type_id));
+  char* output_ptr_buffer = in_use_memories_.back()->MutableBuffer(
+      &kernel_buffer_memory_type, &kernel_buffer_memory_id);
+  if ((kernel_buffer_memory_type != tensor_memory_type) ||
+      (kernel_buffer_memory_id != tensor_memory_type_id)) {
+    return Status(
+        Status::Code::INTERNAL,
+        "Failed to obtain memory buffer for scatter kernel input");
+  }
+  in_use_memories_.emplace_back(new AllocatedMemory(
+      pending_copy_kernel_outputs_.size() * sizeof(size_t),
+      tensor_memory_type, tensor_memory_type_id));
+  char* byte_size_buffer = in_use_memories_.back()->MutableBuffer(
+      &kernel_buffer_memory_type, &kernel_buffer_memory_id);
+  if ((kernel_buffer_memory_type != tensor_memory_type) ||
+      (kernel_buffer_memory_id != tensor_memory_type_id)) {
+    return Status(
+        Status::Code::INTERNAL,
+        "Failed to obtain memory buffer for scatter kernel input");
+  }
+  in_use_memories_.emplace_back(new AllocatedMemory(
+      pending_copy_kernel_outputs_.size() * sizeof(size_t),
+      tensor_memory_type, tensor_memory_type_id));
+  char* byte_size_offset_buffer = in_use_memories_.back()->MutableBuffer(
+      &kernel_buffer_memory_type, &kernel_buffer_memory_id);
+  if ((kernel_buffer_memory_type != tensor_memory_type) ||
+      (kernel_buffer_memory_id != tensor_memory_type_id)) {
+    return Status(
+        Status::Code::INTERNAL,
+        "Failed to obtain memory buffer for scatter kernel input");
+  }
+
+  cudaMemcpyAsync(
+      output_ptr_buffer, output_ptr_buffer_host.data(),
+      pending_copy_kernel_outputs_.size() * sizeof(int8_t*),
+      cudaMemcpyDefault, stream_);
+  cudaMemcpyAsync(
+      byte_size_buffer, byte_size_buffer_host.data(),
+      pending_copy_kernel_outputs_.size() * sizeof(size_t),
+      cudaMemcpyDefault, stream_);
+  cudaMemcpyAsync(
+      byte_size_offset_buffer, byte_size_offset_buffer_host.data(),
+      pending_copy_kernel_outputs_.size() * sizeof(size_t),
+      cudaMemcpyDefault, stream_);
+  RunScatterKernel(
+      (const int8_t*)tensor_buffer + pending_copy_kernel_buffer_offset_,
+       (const size_t*)byte_size_buffer,
+      (const size_t*)byte_size_offset_buffer,
+      (int8_t**)output_ptr_buffer,
+      pending_copy_kernel_outputs_.size(), stream_);
+  return Status::Success;
+#else
+  return Status(
+      Status::Code::UNSUPPORTED,
+      "Output scatter kernel can not be launched with TRITON_ENABLE_GPU=OFF");
+#endif  // TRITON_ENABLE_GPU
 }
 
 
