@@ -357,7 +357,7 @@ InferenceRequest::AddOriginalInput(
   if (!pr.second) {
     auto res = pr.first->second.SetNewOriginalShape(shape, dim_count);
     first_dim_changed_ |= res.first;
-    second_dim_changed_ |= res.second;
+    other_dims_changed_ |= res.second;
   } else {
     needs_normalization_ = true;
   }
@@ -768,16 +768,14 @@ InferenceRequest::ReportStatisticsWithDuration(
 //
 // Input
 //
-InferenceRequest::Input::Input() : data_(new MemoryReference),
-first_dim_changed_(true), other_dims_changed_(true) {}
+InferenceRequest::Input::Input() : data_(new MemoryReference) {}
 
 InferenceRequest::Input::Input(
     const std::string& name, const inference::DataType datatype,
     const int64_t* shape, const uint64_t dim_count)
     : name_(name), datatype_(datatype),
       original_shape_(shape, shape + dim_count), is_shape_tensor_(false),
-      data_(new MemoryReference),
-      first_dim_changed_(true), other_dims_changed_(true)
+      data_(new MemoryReference)
 {
 }
 
@@ -785,8 +783,7 @@ InferenceRequest::Input::Input(
     const std::string& name, const inference::DataType datatype,
     const std::vector<int64_t>& shape)
     : name_(name), datatype_(datatype), original_shape_(shape),
-      is_shape_tensor_(false), data_(new MemoryReference),
-      first_dim_changed_(true), other_dims_changed_(true)
+      is_shape_tensor_(false), data_(new MemoryReference)
 {
 }
 
