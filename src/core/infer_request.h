@@ -165,18 +165,17 @@ class InferenceRequest {
   InferenceRequest(
       const std::shared_ptr<InferenceBackend>& backend,
       const int64_t requested_model_version)
-      : InferenceRequest(backend.get(), requested_model_version),
-      first_dim_changed_(false), other_dims_changed_(false)
+      : InferenceRequest(backend.get(), requested_model_version)
   {
     backend_shared_ = backend;
   }
 
   InferenceRequest(
       InferenceBackend* backend, const int64_t requested_model_version)
-      : needs_normalization_(true), backend_raw_(backend),
+      : needs_normalization_(true), first_dim_changed_(false), other_dims_changed_(false),
+      backend_raw_(backend),
         requested_model_version_(requested_model_version), flags_(0),
-        correlation_id_(0), batch_size_(0), timeout_us_(0), collect_stats_(true),
-        first_dim_changed_(false), other_dims_changed_(false)
+        correlation_id_(0), batch_size_(0), timeout_us_(0), collect_stats_(true)  
   {
     SetPriority(0);
   }
