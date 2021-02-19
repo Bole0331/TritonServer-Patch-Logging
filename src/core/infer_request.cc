@@ -482,7 +482,7 @@ InferenceRequest::PrepareForInference()
 
   // Renormalize if anything has changed in the inference request in a
   // way that could impact renormalization.
-  if (needs_normalization_ || other_dims_changed_ || (first_dim_changed_ && (model_config.max_batch_size() == 0))) {
+  if (needs_normalization_ || other_dims_changed_ || (first_dim_changed_ && (backend_raw_->Config().max_batch_size() == 0))) {
     RETURN_IF_ERROR(Normalize());
     needs_normalization_ = false;
     first_dim_changed_ = false;
