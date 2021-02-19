@@ -506,6 +506,7 @@ InferenceRequest::PrepareForInference()
                 "' batch size does not match other inputs for '" + ModelName() +
                 "'");
       }
+      *input.MutableShapeWithBatchDim() = input.OriginalShape();
     }
   }
 
