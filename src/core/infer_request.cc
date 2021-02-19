@@ -355,16 +355,17 @@ InferenceRequest::AddOriginalInput(
       std::piecewise_construct, std::forward_as_tuple(name),
       std::forward_as_tuple(name, datatype, shape, dim_count));
   if (!pr.second) {
-    return Status(
-        Status::Code::INVALID_ARG,
-        "input '" + name + "' already exists in request");
+    auto res = pr.first->second.SetNewOriginalShape(shape, dim_count);
+    first_dim_changed_ |= res.first;
+    second_dim_changed_ |= res.second;
+  } else {
+    needs_normalization_ = true;
   }
 
   if (input != nullptr) {
     *input = std::addressof(pr.first->second);
   }
 
-  needs_normalization_ = true;
   return Status::Success;
 }
 
@@ -481,9 +482,31 @@ InferenceRequest::PrepareForInference()
 
   // Renormalize if anything has changed in the inference request in a
   // way that could impact renormalization.
-  if (needs_normalization_) {
+  if (needs_normalization_ || other_dims_changed_ || (first_dim_changed_ && (model_config.max_batch_size() == 0))) {
     RETURN_IF_ERROR(Normalize());
     needs_normalization_ = false;
+    first_dim_changed_ = false;
+    other_dims_changed_ = false;
+  }
+  if (first_dim_changed_) {
+    // Model does support Triton-style batching so each input tensor
+    // must have the same first dimension which is the batch
+    // size. Adjust the shape of the input tensors to remove the batch
+    // dimension.
+    batch_size_ = 0;
+    for (auto& pr : original_inputs_) {
+      auto& input = pr.second;
+
+      if (batch_size_ == 0) {
+        batch_size_ = input.OriginalShape()[0];
+      } else if (input.OriginalShape()[0] != batch_size_) {
+        return Status(
+            Status::Code::INVALID_ARG,
+            "input '" + input.Name() +
+                "' batch size does not match other inputs for '" + ModelName() +
+                "'");
+      }
+    }
   }
 
   // Initially show the actual inputs to be only the original
@@ -745,14 +768,16 @@ InferenceRequest::ReportStatisticsWithDuration(
 //
 // Input
 //
-InferenceRequest::Input::Input() : data_(new MemoryReference) {}
+InferenceRequest::Input::Input() : data_(new MemoryReference),
+first_dim_changed_(true), other_dims_changed_(true) {}
 
 InferenceRequest::Input::Input(
     const std::string& name, const inference::DataType datatype,
     const int64_t* shape, const uint64_t dim_count)
     : name_(name), datatype_(datatype),
       original_shape_(shape, shape + dim_count), is_shape_tensor_(false),
-      data_(new MemoryReference)
+      data_(new MemoryReference),
+      first_dim_changed_(true), other_dims_changed_(true)
 {
 }
 
@@ -760,7 +785,8 @@ InferenceRequest::Input::Input(
     const std::string& name, const inference::DataType datatype,
     const std::vector<int64_t>& shape)
     : name_(name), datatype_(datatype), original_shape_(shape),
-      is_shape_tensor_(false), data_(new MemoryReference)
+      is_shape_tensor_(false), data_(new MemoryReference),
+      first_dim_changed_(true), other_dims_changed_(true)
 {
 }
 
@@ -769,6 +795,23 @@ InferenceRequest::Input::SetIsShapeTensor(const bool is_shape_tensor)
 {
   is_shape_tensor_ = is_shape_tensor;
   return Status::Success;
+}
+
+std::pair<bool, bool>
+InferenceRequest::Input::SetNewOriginalShape(const int64_t* shape, const uint64_t dim_count)
+{
+  std::pair<bool, bool> res;
+  if ((dim_count == 0) || (original_shape_.size() == 0)) {
+    original_shape_ = std::vector<int64_t>(shape, shape + dim_count);
+    res.first = true;
+    res.second = true;
+    return res;
+  }
+  std::vector<int64_t>new_original_shape(shape, shape + dim_count);
+  res.first = (new_original_shape[0] != original_shape_[0]);
+  res.second = (dim_count != original_shape_.size()) || !(std::equal(new_original_shape.begin() + 1, new_original_shape.end(), original_shape_.begin() + 1));
+  original_shape_.swap(new_original_shape);
+  return res;
 }
 
 Status

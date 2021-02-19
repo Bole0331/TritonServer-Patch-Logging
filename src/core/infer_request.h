@@ -79,6 +79,8 @@ class InferenceRequest {
       return original_shape_;
     }
 
+    std::pair<bool, bool> SetNewOriginalShape(const int64_t* shape, const uint64_t dim_count);
+
     // The shape of the input tensor after normalization. This shape
     // is the original shape modified as required/expected by
     // inference processing.
@@ -163,7 +165,8 @@ class InferenceRequest {
   InferenceRequest(
       const std::shared_ptr<InferenceBackend>& backend,
       const int64_t requested_model_version)
-      : InferenceRequest(backend.get(), requested_model_version)
+      : InferenceRequest(backend.get(), requested_model_version),
+      first_dim_changed_(false), other_dims_changed_(false)
   {
     backend_shared_ = backend;
   }
@@ -172,7 +175,8 @@ class InferenceRequest {
       InferenceBackend* backend, const int64_t requested_model_version)
       : needs_normalization_(true), backend_raw_(backend),
         requested_model_version_(requested_model_version), flags_(0),
-        correlation_id_(0), batch_size_(0), timeout_us_(0), collect_stats_(true)
+        correlation_id_(0), batch_size_(0), timeout_us_(0), collect_stats_(true),
+        first_dim_changed_(false), other_dims_changed_(false)
   {
     SetPriority(0);
   }
@@ -469,6 +473,8 @@ class InferenceRequest {
   // causes normalization to be required when preparing the request
   // for inference.
   bool needs_normalization_;
+  bool first_dim_changed_;
+  bool other_dims_changed_;
 
   // The backend associated with this request. For most requests
   // backend_shared_ will be non-null and will act to keep the backend
