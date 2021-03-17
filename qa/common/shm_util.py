@@ -33,6 +33,7 @@ import tritonclient.grpc as grpcclient
 import tritonclient.http as httpclient
 from tritonclient.utils import *
 
+
 def _range_repr_dtype(dtype):
     if dtype == np.float64:
         return np.int32
