@@ -970,6 +970,7 @@ def create_general_modelconfig(model_name,
                                output_shapes,
                                output_model_shapes,
                                label_filenames,
+                               backend=None,
                                version_policy=None,
                                default_model_filename=None,
                                instance_group_str="",
@@ -997,14 +998,22 @@ def create_general_modelconfig(model_name,
         default_model_filename_str = 'default_model_filename: "{}"'.format(
             default_model_filename)
 
+    # If backend is specified use backend instead of platform
+    if backend is not None:
+        key = "backend"
+        val = backend
+    else:
+        key = "platform"
+        val = platform
+
     config = '''
 name: "{}"
-platform: "{}"
+{}: "{}"
 max_batch_size: {}
 version_policy: {}
 {}
 {}
-'''.format(model_name, platform, max_batch, version_policy_str,
+'''.format(model_name, key, val, max_batch, version_policy_str,
            default_model_filename_str, instance_group_str)
 
     for idx in range(len(input_dtypes)):
