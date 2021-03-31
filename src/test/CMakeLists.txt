@@ -331,7 +331,6 @@ target_compile_options(triton_repo_agent_test PRIVATE
 -UTRITON_ENABLE_ONNXRUNTIME_TENSORRT
 -UTRITON_ENABLE_ONNXRUNTIME_OPENVINO
 -UTRITON_ENABLE_PYTORCH
--UTRITON_ENABLE_CUSTOM
 -UTRITON_ENABLE_ENSEMBLE
 -UTRITON_ENABLE_CUDA_GRAPH
 -UTRITON_ENABLE_GCS
@@ -403,11 +402,4 @@ install(
   RUNTIME DESTINATION bin
 )
 
-add_subdirectory(custom/sdk custom/sdk)
-add_subdirectory(custom/addsub custom/addsub)
-add_subdirectory(custom/identity custom/identity)
-add_subdirectory(custom/image_preprocess custom/image_preprocess)
-add_subdirectory(custom/param custom/param)
-add_subdirectory(custom/sequence custom/sequence)
-add_subdirectory(custom/dyna_sequence custom/dyna_sequence)
 add_subdirectory(repoagent/relocation_repoagent repoagent/relocation_repoagent)
