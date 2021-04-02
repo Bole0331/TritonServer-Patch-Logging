@@ -80,7 +80,6 @@ endif() # TRITON_ENABLE_GRPC
 if(${TRITON_ENABLE_HTTP} OR ${TRITON_ENABLE_GRPC})
   install(
     PROGRAMS
-      ensemble_image_client.py
       image_client.py
       reuse_infer_objects_client.py
       memory_growth_test.py

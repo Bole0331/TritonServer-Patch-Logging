@@ -75,24 +75,6 @@ else()
   )
 
   #
-  # ensemble_image_client
-  #
-  add_executable(
-    ensemble_image_client
-    ensemble_image_client.cc
-    $<TARGET_OBJECTS:json-utils-library>
-  )
-  target_link_libraries(
-    ensemble_image_client
-    PRIVATE TRITON::grpcclient_static
-    PRIVATE TRITON::httpclient_static
-  )
-  install(
-    TARGETS ensemble_image_client
-    RUNTIME DESTINATION bin
-  )
-
-  #
   # reuse_infer_objects_client
   #
   set(

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -61,9 +61,9 @@ if [ "$TEST_VALGRIND" -eq 1 ]; then
 fi
 
 if [ "$TEST_SYSTEM_SHARED_MEMORY" -eq 1 ] || [ "$TEST_CUDA_SHARED_MEMORY" -eq 1 ]; then
-  EXPECTED_NUM_TESTS=${EXPECTED_NUM_TESTS:="29"}
+  EXPECTED_NUM_TESTS=${EXPECTED_NUM_TESTS:="28"}
 else
-  EXPECTED_NUM_TESTS=${EXPECTED_NUM_TESTS:="42"}
+  EXPECTED_NUM_TESTS=${EXPECTED_NUM_TESTS:="41"}
 fi
 
 TF_VERSION=${TF_VERSION:=1}
@@ -114,7 +114,7 @@ ENSEMBLES=${ENSEMBLES:="1"}
 export ENSEMBLES
 
 
-for TARGET in cpu gpu; do
+for TARGET in cpu; do
     if [ "$TRITON_SERVER_CPU_ONLY" == "1" ]; then
         if [ "$TARGET" == "gpu" ]; then
             echo -e "Skip GPU testing on CPU-only device"
@@ -177,7 +177,7 @@ for TARGET in cpu gpu; do
           fi
         done
 
-        create_nop_modelfile `pwd`/libidentity.so `pwd`/models
+        create_nop_modelfile `pwd`/libtriton_identity.so `pwd`/models
       fi
 
       if [[ $BACKENDS == *"graphdef"* ]]; then
@@ -211,14 +211,14 @@ for TARGET in cpu gpu; do
     done
 
     # Modify custom_zero_1_float32 and custom_nobatch_zero_1_float32 for relevant ensembles
-    # This is done after the instance group change above so that identity custom backends
+    # This is done after the instance group change above so that identity backend models
     # are run on CPU
     if [[ $BACKENDS == *"custom"* ]]; then
       cp -r ../custom_models/custom_zero_1_float32 models/. &&\
           mkdir -p models/custom_zero_1_float32/1 && \
-          cp `pwd`/libidentity.so models/custom_zero_1_float32/1/. && \
+          cp `pwd`/libtriton_identity.so models/custom_zero_1_float32/1/. && \
           (cd models/custom_zero_1_float32 && \
-              echo "default_model_filename: \"libidentity.so\"" >> config.pbtxt && \
+              echo "default_model_filename: \"libtriton_identity.so\"" >> config.pbtxt && \
               echo "instance_group [ { kind: KIND_CPU }]" >> config.pbtxt)
       cp -r models/custom_zero_1_float32 models/custom_nobatch_zero_1_float32 && \
           (cd models/custom_zero_1_float32 && \

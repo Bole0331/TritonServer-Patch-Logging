@@ -24,12 +24,11 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-name: "custom_identity_int32"
-platform: "custom"
+name: "savedmodel_identity_int32"
+platform: "tensorflow_savedmodel"
 max_batch_size: 1024
 version_policy: { latest { num_versions: 1 }}
 default_model_filename: "libidentity.so"
-instance_group [ { kind: KIND_CPU } ]
 
 input [
   {
