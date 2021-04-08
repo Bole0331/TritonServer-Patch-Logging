@@ -29,6 +29,7 @@ TEST_LOG="./async_work_queue.log"
 ASYNC_WORK_QUEUE_TEST=./async_work_queue_test
 
 RET=0
+exit 1
 
 export CUDA_VISIBLE_DEVICES=0
 
