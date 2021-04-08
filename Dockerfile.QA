@@ -110,13 +110,13 @@ RUN if [ -f /tmp/tritonbuild/tritonserver/build/test-util/install/bin/caffe2plan
     fi
 
 RUN mkdir -p qa/L0_simple_ensemble/models/simple/1 && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libaddsub.so \
+    cp /workspace/docs/examples/model_repository/simple/1/model.graphdef \
         qa/L0_simple_ensemble/models/simple/1/. && \
     mkdir -p qa/L0_simple_ensemble/models/simple/2 && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libaddsub.so \
+    cp /workspace/docs/examples/model_repository/simple/1/model.graphdef \
         qa/L0_simple_ensemble/models/simple/2/. && \
     mkdir -p qa/L0_multiple_ports/models/simple/1 && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libaddsub.so \
+    cp /workspace/docs/examples/model_repository/simple/1/model.graphdef \
         qa/L0_multiple_ports/models/simple/1/.
 
 RUN mkdir -p qa/L0_backend_identity/models && \
@@ -125,43 +125,43 @@ RUN mkdir -p qa/L0_backend_identity/models && \
     cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_backend_identity/models/identity_fp32/1/.
 
-RUN cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+RUN cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_infer/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_infer_variable/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_infer_reshape/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_infer_zero/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_sequence_batcher/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_savedmodel_shape/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_perf_analyzer/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_large_payload/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_model_config/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_model_queue/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_simple_lib/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_pinned_memory/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_io/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_warmup/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_cmdline_trace/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_batcher/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_client_timeout/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_client_valgrind/. && \
-    cp /tmp/tritonbuild/tritonserver/build/test-util/install/lib/libidentity.so \
+    cp /tmp/tritonbuild/install/backends/identity/libtriton_identity.so \
         qa/L0_client_memory_growth/. && \
     mkdir -p qa/L0_infer_shm && \
     cp -r qa/L0_infer/. qa/L0_infer_shm && \
