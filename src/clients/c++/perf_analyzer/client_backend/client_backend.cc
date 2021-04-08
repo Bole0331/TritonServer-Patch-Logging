@@ -28,6 +28,7 @@
 #include "src/clients/c++/perf_analyzer/client_backend/tensorflow_serving/tfserve_client_backend.h"
 #include "src/clients/c++/perf_analyzer/client_backend/torchserve/torchserve_client_backend.h"
 #include "src/clients/c++/perf_analyzer/client_backend/triton/triton_client_backend.h"
+#include "src/clients/c++/perf_analyzer/client_backend/triton_local/triton_local_client_backend.h"
 
 namespace perfanalyzer { namespace clientbackend {
 
@@ -60,6 +61,9 @@ BackendKindToString(const BackendKind kind)
       break;
     case TORCHSERVE:
       return std::string("TORCHSERVE");
+      break;
+    case TRITON_LOCAL:
+      return std::string("TRITON_LOCAL");
       break;
     default:
       return std::string("UNKNOWN");
@@ -130,6 +134,10 @@ ClientBackend::Create(
   } else if (kind == TORCHSERVE) {
     RETURN_IF_CB_ERROR(TorchServeClientBackend::Create(
         url, protocol, http_headers, verbose, &local_backend));
+  } else if (kind == TRITON_LOCAL) {
+     RETURN_IF_CB_ERROR(TritonLocalClientBackend::Create(
+        url, protocol, BackendToGrpcType(compression_algorithm), http_headers,
+        verbose, &local_backend));
   } else {
     return Error("unsupported client backend requested");
   }
@@ -319,6 +327,9 @@ InferInput::Create(
   } else if (kind == TORCHSERVE) {
     RETURN_IF_CB_ERROR(
         TorchServeInferInput::Create(infer_input, name, dims, datatype));
+  } else if (kind == TRITON_LOCAL) {
+    RETURN_IF_CB_ERROR(
+        TritonLocalInferInput::Create(infer_input, name, dims, datatype)); 
   } else {
     return Error(
         "unsupported client backend provided to create InferInput object");
@@ -379,7 +390,10 @@ InferRequestedOutput::Create(
   if (kind == TRITON) {
     RETURN_IF_CB_ERROR(
         TritonInferRequestedOutput::Create(infer_output, name, class_count));
-  } else if (kind == TENSORFLOW_SERVING) {
+  } else if (kind == TRITON_LOCAL) {
+    RETURN_IF_CB_ERROR(
+        TritonLocalInferRequestedOutput::Create(infer_output, name, class_count));
+  }else if (kind == TENSORFLOW_SERVING) {
     RETURN_IF_CB_ERROR(TFServeInferRequestedOutput::Create(infer_output, name));
   } else {
     return Error(

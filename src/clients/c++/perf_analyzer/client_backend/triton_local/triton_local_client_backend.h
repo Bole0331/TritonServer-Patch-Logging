@@ -56,10 +56,10 @@ namespace nic = nvidia::inferenceserver::client;
 namespace perfanalyzer { namespace clientbackend {
 
 //==============================================================================
-/// TritonClientBackend uses triton client C++ library to communicate with
-/// triton inference service. This is done with HTTP/GRPC
+/// TritonLocalClientBackend uses triton client C++ library to communicate with
+/// triton inference service. This uses the local C++ library
 ///
-class TritonClientBackend : public ClientBackend {
+class TritonLocalClientBackend : public ClientBackend {
  public:
   /// Create a triton client backend which can be used to interact with the
   /// server.
@@ -68,7 +68,7 @@ class TritonClientBackend : public ClientBackend {
   /// \param http_headers Map of HTTP headers. The map key/value indicates
   /// the header name/value.
   /// \param verbose Enables the verbose mode.
-  /// \param client_backend Returns a new TritonClientBackend
+  /// \param client_backend Returns a new TritonLocalClientBackend
   /// object.
   /// \return Error object indicating success or failure.
   static Error Create(
@@ -150,11 +150,11 @@ class TritonClientBackend : public ClientBackend {
   Error UnmapSharedMemory(void* shm_addr, size_t byte_size) override;
 
  private:
-  TritonClientBackend(
+  TritonLocalClientBackend(
       const ProtocolType protocol,
       const grpc_compression_algorithm compression_algorithm,
       std::shared_ptr<nic::Headers> http_headers)
-      : ClientBackend(BackendKind::TRITON), protocol_(protocol),
+      : ClientBackend(BackendKind::TRITON_LOCAL), protocol_(protocol),
         compression_algorithm_(compression_algorithm),
         http_headers_(http_headers)
   {
@@ -196,10 +196,10 @@ class TritonClientBackend : public ClientBackend {
 };
 
 //==============================================================
-/// TritonInferInput is a wrapper around InferInput object of
+/// TritonLocalInferInput is a wrapper around InferInput object of
 /// triton client library.
 ///
-class TritonInferInput : public InferInput {
+class TritonLocalInferInput : public InferInput {
  public:
   static Error Create(
       InferInput** infer_input, const std::string& name,
@@ -219,17 +219,17 @@ class TritonInferInput : public InferInput {
       const std::string& name, size_t byte_size, size_t offset = 0) override;
 
  private:
-  explicit TritonInferInput(
+  explicit TritonLocalInferInput(
       const std::string& name, const std::string& datatype);
 
   std::unique_ptr<nic::InferInput> input_;
 };
 
 //==============================================================
-/// TritonInferRequestedOutput is a wrapper around
+/// TritonLocalInferRequestedOutput is a wrapper around
 /// InferRequestedOutput object of triton client library.
 ///
-class TritonInferRequestedOutput : public InferRequestedOutput {
+class TritonLocalInferRequestedOutput : public InferRequestedOutput {
  public:
   static Error Create(
       InferRequestedOutput** infer_output, const std::string name,
@@ -243,18 +243,18 @@ class TritonInferRequestedOutput : public InferRequestedOutput {
       const size_t offset = 0) override;
 
  private:
-  explicit TritonInferRequestedOutput();
+  explicit TritonLocalInferRequestedOutput();
 
   std::unique_ptr<nic::InferRequestedOutput> output_;
 };
 
 //==============================================================
-/// TritonInferResult is a wrapper around InferResult object of
+/// TritonLocalInferResult is a wrapper around InferResult object of
 /// triton client library.
 ///
-class TritonInferResult : public InferResult {
+class TritonLocalInferResult : public InferResult {
  public:
-  explicit TritonInferResult(nic::InferResult* result);
+  explicit TritonLocalInferResult(nic::InferResult* result);
   /// See InferResult::Id()
   Error Id(std::string* id) const override;
   /// See InferResult::RequestStatus()

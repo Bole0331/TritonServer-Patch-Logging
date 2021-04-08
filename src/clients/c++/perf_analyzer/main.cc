@@ -900,6 +900,8 @@ main(int argc, char** argv)
         std::string arg = optarg;
         if (arg.compare("triton") == 0) {
           kind = cb::TRITON;
+        } else if (arg.compare("triton_local") == 0) {
+          kind = cb::TRITON_LOCAL;
         } else if (arg.compare("tfserving") == 0) {
           kind = cb::TENSORFLOW_SERVING;
         } else if (arg.compare("torchserve") == 0) {
@@ -1106,8 +1108,8 @@ main(int argc, char** argv)
   }
 
   if (!url_specified && (protocol == cb::ProtocolType::GRPC)) {
-    if (kind == cb::BackendKind::TRITON) {
-      url = "localhost:8001";
+    if (kind == cb::BackendKind::TRITON || kind == cb::BackendKind::TRITON_LOCAL) {
+      url = "localhost:8001"; 
     } else if (kind == cb::BackendKind::TENSORFLOW_SERVING) {
       url = "localhost:8500";
     }
@@ -1168,6 +1170,19 @@ main(int argc, char** argv)
   std::shared_ptr<pa::ModelParser> parser =
       std::make_shared<pa::ModelParser>(kind);
   if (kind == cb::BackendKind::TRITON) {
+    rapidjson::Document model_metadata;
+    FAIL_IF_ERR(
+        backend->ModelMetadata(&model_metadata, model_name, model_version),
+        "failed to get model metadata");
+    rapidjson::Document model_config;
+    FAIL_IF_ERR(
+        backend->ModelConfig(&model_config, model_name, model_version),
+        "failed to get model config");
+    FAIL_IF_ERR(
+        parser->InitTriton(
+            model_metadata, model_config, model_version, input_shapes, backend),
+        "failed to create model parser");
+  } else if (kind == cb::BackendKind::TRITON_LOCAL) {
     rapidjson::Document model_metadata;
     FAIL_IF_ERR(
         backend->ModelMetadata(&model_metadata, model_name, model_version),
@@ -1301,8 +1316,8 @@ main(int argc, char** argv)
       "failed to create profiler");
 
   // pre-run report
-  std::cout << "*** Measurement Settings ***" << std::endl;
-  if (kind == cb::BackendKind::TRITON || using_batch_size) {
+  std::cout << "*** Measurement Settings Boing***" << std::endl;
+  if (kind == cb::BackendKind::TRITON ||kind == cb::BackendKind::TRITON_LOCAL || using_batch_size) {
     std::cout << "  Batch size: " << batch_size << std::endl;
   }
   std::cout << "  Measurement window: " << measurement_window_ms << " msec"
