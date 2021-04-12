@@ -1,4 +1,4 @@
-// Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -25,6 +25,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "src/clients/c++/perf_analyzer/client_backend/triton_local/triton_local_client_backend.h"
+#include "src/clients/c++/perf_analyzer/client_backend/triton_local/shared_library.h"
 
 #include "src/clients/c++/examples/json_utils.h"
 

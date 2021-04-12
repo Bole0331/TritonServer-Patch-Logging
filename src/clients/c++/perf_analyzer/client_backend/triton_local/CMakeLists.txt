@@ -47,6 +47,7 @@ target_link_libraries(
   PUBLIC model-config-library
   PUBLIC TRITON::grpcclient_static
   PUBLIC TRITON::httpclient_static
+  #triton-core-serverstub  # from repo-core
 )
 
 if(${TRITON_ENABLE_GPU})
