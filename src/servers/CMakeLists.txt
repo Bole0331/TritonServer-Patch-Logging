@@ -56,7 +56,7 @@ if(${TRITON_ENABLE_GRPC})
 
   add_dependencies(grpc-endpoint-library proto-library)
   if(${TRITON_ENABLE_GRPC})
-    add_dependencies(grpc-endpoint-library grpc-library)
+    add_dependencies(grpc-endpoint-library grpc-service-library)
   endif() # TRITON_ENABLE_GRPC
 
   target_link_libraries(
@@ -74,7 +74,7 @@ if(${TRITON_ENABLE_GRPC})
   if(${TRITON_ENABLE_GRPC})
     list(APPEND
       GRPC_ENDPOINT_OBJECTS
-      $<TARGET_OBJECTS:grpc-library>
+      $<TARGET_OBJECTS:grpc-service-library>
       )
   endif() # TRITON_ENABLE_GRPC
 
