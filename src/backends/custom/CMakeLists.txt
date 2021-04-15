@@ -47,7 +47,6 @@ add_library(
   custom-backend-library EXCLUDE_FROM_ALL OBJECT
   ${CUSTOM_SRCS} ${CUSTOM_HDRS}
 )
-add_dependencies(custom-backend-library proto-library)
 
 if(${TRITON_ENABLE_GPU})
   target_include_directories(custom-backend-library PRIVATE ${CUDA_INCLUDE_DIRS})
@@ -61,7 +60,9 @@ endif() # TRITON_ENABLE_METRICS
 
 target_link_libraries(
   custom-backend-library
-  PUBLIC 
+  PRIVATE
+    proto-library
+  PUBLIC
     triton-core-serverapi     # from repo-core
     triton-common-sync-queue  # from repo-common
 )

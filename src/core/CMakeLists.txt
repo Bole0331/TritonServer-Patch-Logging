@@ -33,10 +33,10 @@ add_library(
   model-config-library EXCLUDE_FROM_ALL OBJECT
   model_config.cc model_config.h
 )
-add_dependencies(model-config-library proto-library)
 target_link_libraries(
   model-config-library
   PUBLIC
+    proto-library
     triton-core-serverapi   # from repo-core
 )
 
@@ -46,7 +46,11 @@ if(${TRITON_ENABLE_GPU})
     model_config_cuda.cc model_config_cuda.h
   )
   target_include_directories(model-config-cuda-library PRIVATE ${CUDA_INCLUDE_DIRS})
-  add_dependencies(model-config-cuda-library proto-library)
+  target_link_libraries(
+    model-config-cuda-library
+    PUBLIC
+      proto-library
+  )
 endif() # TRITON_ENABLE_GPU
 
 #
@@ -66,10 +70,10 @@ add_library(
   triton-repoagent-library EXCLUDE_FROM_ALL OBJECT
   ${REPOAGENT_SRCS} ${REPOAGENT_HDRS}
 )
-add_dependencies(triton-repoagent-library proto-library)
-
 target_link_libraries(
   triton-repoagent-library
+  PRIVATE
+    proto-library
   PUBLIC
     triton-core-repoagentapi  # from repo-core
     triton-core-serverapi   # from repo-core
@@ -196,7 +200,6 @@ add_library(
   server-library EXCLUDE_FROM_ALL OBJECT
   ${SERVER_SRCS} ${SERVER_HDRS}
 )
-add_dependencies(server-library proto-library)
 
 if(${TRITON_ENABLE_GPU})
   target_include_directories(
@@ -236,6 +239,8 @@ endif() # TRITON_ENABLE_AZURE_STORAGE
 
 target_link_libraries(
   server-library
+  PRIVATE
+    proto-library
   PUBLIC
     triton-core-backendapi           # from repo-core
     triton-core-serverapi            # from repo-core
