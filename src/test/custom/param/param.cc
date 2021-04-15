@@ -25,9 +25,8 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string>
-
 #include "src/core/model_config.h"
-#include "src/core/model_config.pb.h"
+#include "model_config.pb.h"
 #include "src/test/custom/sdk/custom_instance.h"
 
 #define LOG_ERROR std::cerr
