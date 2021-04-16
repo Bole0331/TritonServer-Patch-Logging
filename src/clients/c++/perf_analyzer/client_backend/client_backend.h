@@ -45,6 +45,11 @@
     }                            \
   } while (false)
 
+#define RETURN_ERROR(S) \
+  do {                  \
+    return Error(S);    \
+  } while (false)
+
 namespace perfanalyzer { namespace clientbackend {
 
 //==============================================================================

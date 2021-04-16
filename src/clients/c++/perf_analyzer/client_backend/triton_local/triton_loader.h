@@ -31,15 +31,20 @@
 #include "src/clients/c++/perf_analyzer/perf_utils.h"
 #include "triton/core/tritonserver.h"
 
+#include <thread>
+
 // If TRITONSERVER error is non-OK, return the corresponding status.
-#define RETURN_IF_TRITONSERVER_ERROR(E)                   \
-  do {                                                    \
-    TRITONSERVER_Error* err__ = (E);                      \
-    if (err__ != nullptr) {                               \
-      Error newErr = cb::Error(error_message_fn_(err__)); \
-      error_delete_fn_(err__);                            \
-      return newErr;                                      \
-    }                                                     \
+#define RETURN_IF_TRITONSERVER_ERROR(E, MSG)                \
+  do {                                                      \
+    TRITONSERVER_Error* err__ = (E);                        \
+    if (err__ != nullptr) {                                 \
+      std::cerr << "error: " << (MSG) << ": "               \
+                << error_code_to_string_fn_(err__) << " - " \
+                << error_message_fn_(err__) << std::endl;   \
+      Error newErr = cb::Error(MSG);                        \
+      error_delete_fn_(err__);                              \
+      return newErr;                                        \
+    }                                                       \
   } while (false)
 
 #define REPORT_TRITONSERVER_ERROR(E)                      \
@@ -55,79 +60,243 @@ namespace cb = perfanalyzer::clientbackend;
 namespace perfanalyzer { namespace clientbackend {
 class TritonLoader {
  public:
+  TritonLoader(
+      std::string library_directory, std::string memory_type,
+      std::string model_repository_path)
+      : library_directory_(library_directory),
+        model_repository_path_(model_repository_path)
+  {
+    cb::Error status = LoadServerLibrary();
+    // some error handling
+    if (!model_repository_path.empty()) {
+      model_repository_path_ = model_repository_path;
+    } else {
+      RETURN_ERROR("Need to specify model repository");
+    }
+    status = startTriton(memory_type, true);
+    assert(status.IsOk());
+  }
+
+  ~TritonLoader()
+  {
+    FAIL_IF_ERR(
+        CloseLibraryHandle(dlhandle_), "error on closing triton loader");
+    ClearHandles();
+  }
+
+  cb::Error startTriton(std::string& memory_type, bool isVerbose)
+  {
+    if (!memory_type.empty()) {
+      enforce_memory_type_ = true;
+      if (memory_type.compare("system")) {
+        requested_memory_type_ = TRITONSERVER_MEMORY_CPU;
+      } else if (memory_type.compare("pinned")) {
+        requested_memory_type_ = TRITONSERVER_MEMORY_CPU_PINNED;
+      } else if (memory_type.compare("gpu")) {
+        requested_memory_type_ = TRITONSERVER_MEMORY_GPU;
+      } else {
+        RETURN_ERROR(
+            "Specify one of the following types: system, pinned or gpu");
+      }
+    }
+
+    if (isVerbose) {
+      verbose_level_ = 1;
+    }
+
+    // Check API version.
+    uint32_t api_version_major, api_version_minor;
+    REPORT_TRITONSERVER_ERROR(
+        api_version_fn_(&api_version_major, &api_version_minor));
+    std::cout << "api version major: " << api_version_major
+              << ", minor: " << api_version_minor << std::endl;
+    if ((TRITONSERVER_API_VERSION_MAJOR != api_version_major) ||
+        (TRITONSERVER_API_VERSION_MINOR > api_version_minor)) {
+      RETURN_ERROR("triton server API version mismatch");
+    }
+
+    // Create the server...
+    TRITONSERVER_ServerOptions* server_options = nullptr;
+    RETURN_IF_TRITONSERVER_ERROR(
+        options_new_fn_(&server_options), "creating server options");
+    RETURN_IF_TRITONSERVER_ERROR(
+        options_set_model_repo_path_fn_(
+            server_options, model_repository_path_.c_str()),
+        "setting model repository path");
+    RETURN_IF_TRITONSERVER_ERROR(
+        set_log_verbose_fn_(server_options, verbose_level_),
+        "setting verbose logging level");
+    RETURN_IF_TRITONSERVER_ERROR(
+        set_backend_directory_fn_(
+            server_options, (library_directory_ + "/backends").c_str()),
+        "setting backend directory");
+    RETURN_IF_TRITONSERVER_ERROR(
+        set_repo_agent_directory_fn_(
+            server_options, (library_directory_ + "/repoagents").c_str()),
+        "setting repository agent directory");
+    RETURN_IF_TRITONSERVER_ERROR(
+        set_strict_model_config_fn_(server_options, true),
+        "setting strict model configuration");
+    double min_compute_capability = 0;
+    // FIXME: Do not have GPU support right now
+    RETURN_IF_TRITONSERVER_ERROR(
+        set_min_supported_compute_capability_fn_(
+            server_options, min_compute_capability),
+        "setting minimum supported CUDA compute capability");
+    RETURN_IF_TRITONSERVER_ERROR(
+        server_new_fn_(&server_ptr_, server_options), "creating server");
+    RETURN_IF_TRITONSERVER_ERROR(
+        server_options_delete_fn_(server_options), "deleting server options");
+    std::shared_ptr<TRITONSERVER_Server> shared_server(
+        server_ptr_, server_delete_fn_);
+    server_ = shared_server;
+
+    // Wait until the server is both live and ready.
+    size_t health_iters = 0;
+    while (true) {
+      bool live, ready;
+      RETURN_IF_TRITONSERVER_ERROR(
+          server_is_live_fn_(server_.get(), &live),
+          "unable to get server liveness");
+      RETURN_IF_TRITONSERVER_ERROR(
+          server_is_ready_fn_(server_.get(), &ready),
+          "unable to get server readiness");
+      std::cout << "Server Health: live " << live << ", ready " << ready
+                << std::endl;
+      if (live && ready) {
+        std::cout << "server is alive!" << std::endl;
+        break;
+      }
+
+      if (++health_iters >= 10) {
+        RETURN_ERROR("failed to find healthy inference server");
+      }
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+    // Print status of the server.
+    {
+      TRITONSERVER_Message* server_metadata_message;
+      RETURN_IF_TRITONSERVER_ERROR(
+          server_metadata_fn_(server_.get(), &server_metadata_message),
+          "unable to get server metadata message");
+      const char* buffer;
+      size_t byte_size;
+      RETURN_IF_TRITONSERVER_ERROR(
+          message_serialize_to_json_fn_(
+              server_metadata_message, &buffer, &byte_size),
+          "unable to serialize server metadata message");
+
+      std::cout << "Server Status:" << std::endl;
+      std::cout << std::string(buffer, byte_size) << std::endl;
+
+      RETURN_IF_TRITONSERVER_ERROR(
+          message_delete_fn_(server_metadata_message),
+          "deleting status metadata");
+    }
+
+    return Error::Success;
+  }
+
+  // TRITONSERVER_ApiVersion
   typedef TRITONSERVER_Error* (*TritonServerApiVersionFn_t)(
       uint32_t* major, uint32_t* minor);
+  // TRITONSERVER_ServerOptionsNew
   typedef TRITONSERVER_Error* (*TritonServerOptionsNewFn_t)(
       TRITONSERVER_ServerOptions** options);
+  // TRITONSERVER_ServerOptionsSetModelRepositoryPath
   typedef TRITONSERVER_Error* (*TritonServerOptionSetModelRepoPathFn_t)(
       TRITONSERVER_ServerOptions* options, const char* model_repository_path);
+  // TRITONSERVER_ServerOptionsSetLogVerbose
   typedef TRITONSERVER_Error* (*TritonServerSetLogVerboseFn_t)(
       TRITONSERVER_ServerOptions* options, int level);
 
+  // TRITONSERVER_ServerOptionsSetBackendDirectory
   typedef TRITONSERVER_Error* (*TritonServerSetBackendDirFn_t)(
       TRITONSERVER_ServerOptions* options, const char* backend_dir);
+  // TRITONSERVER_ServerOptionsSetRepoAgentDirectory
   typedef TRITONSERVER_Error* (*TritonServerSetRepoAgentDirFn_t)(
       TRITONSERVER_ServerOptions* options, const char* repoagent_dir);
+  // TRITONSERVER_ServerOptionsSetStrictModelConfig
   typedef TRITONSERVER_Error* (*TritonServerSetStrictModelConfigFn_t)(
       TRITONSERVER_ServerOptions* options, bool strict);
+  // TRITONSERVER_ServerOptionsSetMinSupportedComputeCapability
   typedef TRITONSERVER_Error* (
       *TritonServerSetMinSupportedComputeCapabilityFn_t)(
       TRITONSERVER_ServerOptions* options, double cc);
 
+  // TRITONSERVER_ServerNew
   typedef TRITONSERVER_Error* (*TritonServerNewFn_t)(
       TRITONSERVER_Server** server, TRITONSERVER_ServerOptions* option);
+  // TRITONSERVER_ServerOptionsDelete
   typedef TRITONSERVER_Error* (*TritonServerOptionsDeleteFn_t)(
       TRITONSERVER_ServerOptions* options);
+  // TRITONSERVER_ServerDelete
   typedef TRITONSERVER_Error* (*TritonServerDeleteFn_t)(
       TRITONSERVER_Server* server);
+  // TRITONSERVER_ServerIsLive
   typedef TRITONSERVER_Error* (*TritonServerIsLiveFn_t)(
       TRITONSERVER_Server* server, bool* live);
 
+  // TRITONSERVER_ServerIsReady
   typedef TRITONSERVER_Error* (*TritonServerIsReadyFn_t)(
       TRITONSERVER_Server* server, bool* ready);
+  // TRITONSERVER_ServerMetadata
   typedef TRITONSERVER_Error* (*TritonServerMetadataFn_t)(
       TRITONSERVER_Server* server, TRITONSERVER_Message** server_metadata);
+  // TRITONSERVER_MessageSerializeToJson
   typedef TRITONSERVER_Error* (*TritonServerMessageSerializeToJsonFn_t)(
       TRITONSERVER_Message* message, const char** base, size_t* byte_size);
+  // TRITONSERVER_MessageDelete
   typedef TRITONSERVER_Error* (*TritonServerMessageDeleteFn_t)(
       TRITONSERVER_Message* message);
 
+  // TRITONSERVER_ServerModelIsReady
   typedef TRITONSERVER_Error* (*TritonServerModelIsReadyFn_t)(
       TRITONSERVER_Server* server, const char* model_name,
       const int64_t model_version, bool* ready);
+  // TRITONSERVER_ServerModelMetadata
   typedef TRITONSERVER_Error* (*TritonServerModelMetadataFn_t)(
       TRITONSERVER_Server* server, const char* model_name,
       const int64_t model_version, TRITONSERVER_Message** model_metadata);
+  // TRITONSERVER_ResponseAllocatorNew
   typedef TRITONSERVER_Error* (*TritonServerResponseAllocatorNewFn_t)(
       TRITONSERVER_ResponseAllocator** allocator,
       TRITONSERVER_ResponseAllocatorAllocFn_t alloc_fn,
       TRITONSERVER_ResponseAllocatorReleaseFn_t release_fn,
       TRITONSERVER_ResponseAllocatorStartFn_t start_fn);
+  // TRITONSERVER_InferenceRequestNew
   typedef TRITONSERVER_Error* (*TritonServerInferenceRequestNewFn_t)(
       TRITONSERVER_InferenceRequest** inference_request,
       TRITONSERVER_Server* server, const char* model_name,
       const int64_t model_version);
 
+  // TRITONSERVER_InferenceRequestSetId
   typedef TRITONSERVER_Error* (*TritonServerInferenceRequestSetIdFn_t)(
       TRITONSERVER_InferenceRequest* inference_request, const char* id);
+  // TRITONSERVER_InferenceRequestSetReleaseCallback
   typedef TRITONSERVER_Error* (
       *TritonServerInferenceRequestSetReleaseCallbackFn_t)(
       TRITONSERVER_InferenceRequest* inference_request,
       TRITONSERVER_InferenceRequestReleaseFn_t request_release_fn,
       void* request_release_userp);
+  // TRITONSERVER_InferenceRequestAddInput
   typedef TRITONSERVER_Error* (*TritonServerInferenceRequestAddInputFn_t)(
       TRITONSERVER_InferenceRequest* inference_request, const char* name,
       const TRITONSERVER_DataType datatype, const int64_t* shape,
       uint64_t dim_count);
+  // TRITONSERVER_InferenceRequestAddRequestedOutput
   typedef TRITONSERVER_Error* (
       *TritonServerInferenceRequestAddRequestedOutputFn_t)(
       TRITONSERVER_InferenceRequest* inference_request, const char* name);
 
+  // TRITONSERVER_InferenceRequestAppendInputData
   typedef TRITONSERVER_Error* (
       *TritonServerInferenceRequestAppendInputDataFn_t)(
       TRITONSERVER_InferenceRequest* inference_request, const char* name,
       const void* base, size_t byte_size, TRITONSERVER_MemoryType memory_type,
       int64_t memory_type_i);
+  // TRITONSERVER_InferenceRequestSetResponseCallback
   typedef TRITONSERVER_Error* (
       *TritonServerInferenceRequestSetResponseCallbackFn_t)(
       TRITONSERVER_InferenceRequest* inference_request,
@@ -135,47 +304,51 @@ class TritonLoader {
       void* response_allocator_userp,
       TRITONSERVER_InferenceResponseCompleteFn_t response_fn,
       void* response_userp);
+  // TRITONSERVER_ServerInferAsync
   typedef TRITONSERVER_Error* (*TritonServerInferAsyncFn_t)(
       TRITONSERVER_Server* server,
       TRITONSERVER_InferenceRequest* inference_request,
       TRITONSERVER_InferenceTrace* trace);
+  // TRITONSERVER_InferenceResponseError
   typedef TRITONSERVER_Error* (*TritonServerInferenceResponseErrorFn_t)(
       TRITONSERVER_InferenceResponse* inference_response);
 
+  // TRITONSERVER_InferenceResponseDelete
   typedef TRITONSERVER_Error* (*TritonServerInferenceResponseDeleteFn_t)(
       TRITONSERVER_InferenceResponse* inference_response);
+  // TRITONSERVER_InferenceRequestRemoveAllInputData
   typedef TRITONSERVER_Error* (
       *TritonServerInferenceRequestRemoveAllInputDataFn_t)(
       TRITONSERVER_InferenceRequest* inference_request, const char* name);
+  // TRITONSERVER_ResponseAllocatorDelete
   typedef TRITONSERVER_Error* (*TritonServerResponseAllocatorDeleteFn_t)(
       TRITONSERVER_ResponseAllocator* allocator);
+  // TRITONSERVER_ErrorNew
   typedef TRITONSERVER_Error* (*TritonServerErrorNewFn_t)(
       TRITONSERVER_Error_Code code, const char* msg);
 
+  // TRITONSERVER_MemoryTypeString
   typedef const char* (*TritonServerMemoryTypeStringFn_t)(
       TRITONSERVER_MemoryType memtype);
+  // TRITONSERVER_InferenceResponseOutputCount
   typedef TRITONSERVER_Error* (*TritonServerInferenceResponseOutputCountFn_t)(
       TRITONSERVER_InferenceResponse* inference_response, uint32_t* count);
+  // TRITONSERVER_DataTypeString
   typedef const char* (*TritonServerDataTypeStringFn_t)(
       TRITONSERVER_DataType datatype);
+  // TRITONSERVER_ErrorMessage
   typedef const char* (*TritonServerErrorMessageFn_t)(
       TRITONSERVER_Error* error);
+  // TRITONSERVER_ErrorDelete
   typedef void (*TritonServerErrorDeleteFn_t)(TRITONSERVER_Error* error);
+  // TRITONSERVER_ErrorCodeString
+  typedef const char* (*TritonServerErrorCodeToStringFn_t)(
+      TRITONSERVER_Error* error);
 
-  TritonLoader(std::string library_directory)
-      : library_directory_(library_directory)
-  {
-    auto status = LoadServerLibrary();
-    assert(status.IsOk());
-    // Check API version.
-    uint32_t api_version_major, api_version_minor;
-    REPORT_TRITONSERVER_ERROR(
-        api_version_fn_(&api_version_major, &api_version_minor));
-    std::cout << "api version major: " << api_version_major
-              << ", minor: " << api_version_minor << std::endl;
-  }
-
-  Error LoadServerLibrary()
+ private:
+  /// Load all tritonserver.h functions onto triton_loader
+  /// internal handles
+  cb::Error LoadServerLibrary()
   {
     std::string full_path = library_directory_ + SERVER_LIBRARY_PATH;
     RETURN_IF_ERROR(FileExists(full_path));
@@ -228,6 +401,7 @@ class TritonLoader {
     TritonServerDataTypeStringFn_t dtsfn;
     TritonServerErrorMessageFn_t emfn;
     TritonServerErrorDeleteFn_t edfn;
+    TritonServerErrorCodeToStringFn_t ectsfn;
 
     RETURN_IF_ERROR(GetEntrypoint(
         dlhandle_, "TRITONSERVER_ApiVersion", true /* optional */,
@@ -348,6 +522,9 @@ class TritonLoader {
     RETURN_IF_ERROR(GetEntrypoint(
         dlhandle_, "TRITONSERVER_ErrorDelete", true /* optional */,
         reinterpret_cast<void**>(&edfn)));
+    RETURN_IF_ERROR(GetEntrypoint(
+        dlhandle_, "TRITONSERVER_ErrorCodeString", true /* optional */,
+        reinterpret_cast<void**>(&ectsfn)));
 
     api_version_fn_ = apifn;
     options_new_fn_ = onfn;
@@ -394,18 +571,11 @@ class TritonLoader {
     data_type_string_fn_ = dtsfn;
     error_message_fn_ = emfn;
     error_delete_fn_ = edfn;
+    error_code_to_string_fn_ = ectsfn;
 
     return Error::Success;
   }
 
-  ~TritonLoader()
-  {
-    FAIL_IF_ERR(
-        CloseLibraryHandle(dlhandle_), "error on closing triton loader");
-    ClearHandles();
-  }
-
- private:
   void ClearHandles()
   {
     dlhandle_ = nullptr;
@@ -455,11 +625,15 @@ class TritonLoader {
     data_type_string_fn_ = nullptr;
     error_message_fn_ = nullptr;
     error_delete_fn_ = nullptr;
+    error_code_to_string_fn_ = nullptr;
 
     options_ = nullptr;
-    server_ = nullptr;
+    server_ptr_ = nullptr;
   }
 
+  /// Check if file exists in the current directory
+  /// \param filepath Path of library to check
+  /// \return perfanalyzer::clientbackend::Error
   Error FileExists(std::string& filepath)
   {
     std::ifstream ifile;
@@ -524,12 +698,17 @@ class TritonLoader {
   TritonServerDataTypeStringFn_t data_type_string_fn_;
   TritonServerErrorMessageFn_t error_message_fn_;
   TritonServerErrorDeleteFn_t error_delete_fn_;
-
+  TritonServerErrorCodeToStringFn_t error_code_to_string_fn_;
 
   TRITONSERVER_ServerOptions* options_;
-  TRITONSERVER_Server* server_;
+  TRITONSERVER_Server* server_ptr_;
+  std::shared_ptr<TRITONSERVER_Server> server_;
   const std::string library_directory_;
   const std::string SERVER_LIBRARY_PATH = "/lib/libtritonserver.so";
+  int verbose_level_ = 0;
+  bool enforce_memory_type_ = false;
+  std::string model_repository_path_;
+  TRITONSERVER_memorytype_enum requested_memory_type_ = TRITONSERVER_MEMORY_CPU;
 };
 
 

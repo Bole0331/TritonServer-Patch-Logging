@@ -157,7 +157,10 @@ class TritonLocalClientBackend : public ClientBackend {
       std::shared_ptr<nic::Headers> http_headers)
       : ClientBackend(BackendKind::TRITON_LOCAL), protocol_(protocol),
         compression_algorithm_(compression_algorithm),
-        http_headers_(http_headers), loader_("/opt/tritonserver")
+        http_headers_(http_headers),
+        loader_(
+            "/opt/tritonserver", "system",
+            "/tmp/host/docker-data/model_unit_test/")
   {
   }
 
