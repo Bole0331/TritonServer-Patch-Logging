@@ -27,14 +27,29 @@
 
 #include <string>
 #include "src/clients/c++/perf_analyzer/client_backend/client_backend.h"
+#include "src/clients/c++/perf_analyzer/perf_utils.h"
 
-namespace nvidia { namespace inferenceserver {
+// If TRITONSERVER error is non-OK, return the corresponding status.
+#define RETURN_IF_TRITONSERVER_ERROR(E)                          \
+  do {                                                           \
+    TRITONSERVER_Error* err__ = (E);                             \
+    if (err__ != nullptr) {                                      \
+      Status status__ = Status(                                  \
+          TritonCodeToStatusCode(TRITONSERVER_ErrorCode(err__)), \
+          TRITONSERVER_ErrorMessage(err__));                     \
+      TRITONSERVER_ErrorDelete(err__);                           \
+      return status__;                                           \
+    }                                                            \
+  } while (false)
 
-Status OpenLibraryHandle(const std::string& path, void** handle);
 
-Status CloseLibraryHandle(void* handle);
 
-Status GetEntrypoint(
+namespace perfanalyzer { namespace clientbackend {
+Error OpenLibraryHandle(const std::string& path, void** handle);
+
+Error CloseLibraryHandle(void* handle);
+
+Error GetEntrypoint(
     void* handle, const std::string& name, const bool optional, void** befn);
 
-}}  // namespace nvidia::inferenceserver
+}}  // namespace perfanalyzer::clientbackend

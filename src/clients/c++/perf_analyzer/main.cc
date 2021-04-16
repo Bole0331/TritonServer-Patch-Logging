@@ -1316,7 +1316,7 @@ main(int argc, char** argv)
       "failed to create profiler");
 
   // pre-run report
-  std::cout << "*** Measurement Settings Boing***" << std::endl;
+  std::cout << "*** Measurement Settings REMOVE MEEEEEE***" << std::endl;
   if (kind == cb::BackendKind::TRITON ||kind == cb::BackendKind::TRITON_LOCAL || using_batch_size) {
     std::cout << "  Batch size: " << batch_size << std::endl;
   }

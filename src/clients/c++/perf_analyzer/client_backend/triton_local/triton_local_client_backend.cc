@@ -25,8 +25,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "src/clients/c++/perf_analyzer/client_backend/triton_local/triton_local_client_backend.h"
-#include "src/clients/c++/perf_analyzer/client_backend/triton_local/shared_library.h"
-
+#include "src/clients/c++/perf_analyzer/client_backend/triton_local/triton_loader.h"
 #include "src/clients/c++/examples/json_utils.h"
 
 namespace perfanalyzer { namespace clientbackend {
@@ -51,7 +50,6 @@ TritonLocalClientBackend::Create(
   }
 
   *client_backend = std::move(triton_client_backend);
-
   return Error::Success;
 }
 

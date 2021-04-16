@@ -29,11 +29,14 @@ cmake_minimum_required (VERSION 3.18)
 set(
     TRITON_LOCAL_CLIENT_BACKEND_SRCS
     triton_local_client_backend.cc
+    shared_library.cc
 )
 
 set(
     TRITON_LOCAL_CLIENT_BACKEND_HDRS
     triton_local_client_backend.h
+    shared_library.h
+    triton_loader.h
 )
 
 add_library(
@@ -47,7 +50,8 @@ target_link_libraries(
   PUBLIC model-config-library
   PUBLIC TRITON::grpcclient_static
   PUBLIC TRITON::httpclient_static
-  #triton-core-serverstub  # from repo-core
+  triton-core-serverstub  # from repo-core
+  triton-core-serverapi   # from repo-core
 )
 
 if(${TRITON_ENABLE_GPU})
