@@ -32,24 +32,23 @@
 #include "triton/core/tritonserver.h"
 
 // If TRITONSERVER error is non-OK, return the corresponding status.
-#define RETURN_IF_TRITONSERVER_ERROR(E)                          \
-  do {                                                           \
-    TRITONSERVER_Error* err__ = (E);                             \
-    if (err__ != nullptr) {                                      \
-      Error newErr = cb::Error(                                  \
-          error_message_fn_(err__));                             \
-      error_delete_fn_(err__);                                   \
-      return newErr;                                             \
-    }                                                            \
+#define RETURN_IF_TRITONSERVER_ERROR(E)                   \
+  do {                                                    \
+    TRITONSERVER_Error* err__ = (E);                      \
+    if (err__ != nullptr) {                               \
+      Error newErr = cb::Error(error_message_fn_(err__)); \
+      error_delete_fn_(err__);                            \
+      return newErr;                                      \
+    }                                                     \
   } while (false)
 
-#define REPORT_TRITONSERVER_ERROR(E)                             \
-  do {                                                           \
-    TRITONSERVER_Error* err__ = (E);                             \
-    if (err__ != nullptr) {                                      \
-      std::cerr << error_message_fn_(err__) << std::endl;        \
-      error_delete_fn_(err__);                                   \
-    }                                                            \
+#define REPORT_TRITONSERVER_ERROR(E)                      \
+  do {                                                    \
+    TRITONSERVER_Error* err__ = (E);                      \
+    if (err__ != nullptr) {                               \
+      std::cerr << error_message_fn_(err__) << std::endl; \
+      error_delete_fn_(err__);                            \
+    }                                                     \
   } while (false)
 
 namespace cb = perfanalyzer::clientbackend;
@@ -161,8 +160,7 @@ class TritonLoader {
       TRITONSERVER_DataType datatype);
   typedef const char* (*TritonServerErrorMessageFn_t)(
       TRITONSERVER_Error* error);
-  typedef void (*TritonServerErrorDeleteFn_t)(
-      TRITONSERVER_Error* error);
+  typedef void (*TritonServerErrorDeleteFn_t)(TRITONSERVER_Error* error);
 
   TritonLoader(std::string library_directory)
       : library_directory_(library_directory)
@@ -172,9 +170,9 @@ class TritonLoader {
     // Check API version.
     uint32_t api_version_major, api_version_minor;
     REPORT_TRITONSERVER_ERROR(
-      api_version_fn_(&api_version_major, &api_version_minor));
-    std::cout << "api version major: " << api_version_major << 
-            ", minor: " << api_version_minor <<std::endl;
+        api_version_fn_(&api_version_major, &api_version_minor));
+    std::cout << "api version major: " << api_version_major
+              << ", minor: " << api_version_minor << std::endl;
   }
 
   Error LoadServerLibrary()
@@ -345,11 +343,11 @@ class TritonLoader {
         dlhandle_, "TRITONSERVER_DataTypeString", true /* optional */,
         reinterpret_cast<void**>(&dtsfn)));
     RETURN_IF_ERROR(GetEntrypoint(
-        dlhandle_, "TRITONSERVER_ErrorMessage",
-        true /* optional */, reinterpret_cast<void**>(&emfn)));
+        dlhandle_, "TRITONSERVER_ErrorMessage", true /* optional */,
+        reinterpret_cast<void**>(&emfn)));
     RETURN_IF_ERROR(GetEntrypoint(
-        dlhandle_, "TRITONSERVER_ErrorDelete",
-        true /* optional */, reinterpret_cast<void**>(&edfn)));
+        dlhandle_, "TRITONSERVER_ErrorDelete", true /* optional */,
+        reinterpret_cast<void**>(&edfn)));
 
     api_version_fn_ = apifn;
     options_new_fn_ = onfn;
