@@ -28,8 +28,8 @@
 #include <string>
 
 #include "src/clients/c++/perf_analyzer/client_backend/client_backend.h"
-#include "src/clients/c++/perf_analyzer/perf_utils.h"
 #include "src/clients/c++/perf_analyzer/client_backend/triton_local/triton_loader.h"
+#include "src/clients/c++/perf_analyzer/perf_utils.h"
 
 #include "src/clients/c++/examples/shm_utils.h"
 #include "src/clients/c++/library/grpc_client.h"

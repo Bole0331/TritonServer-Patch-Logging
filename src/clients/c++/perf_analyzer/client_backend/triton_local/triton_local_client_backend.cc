@@ -25,8 +25,8 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "src/clients/c++/perf_analyzer/client_backend/triton_local/triton_local_client_backend.h"
-#include "src/clients/c++/perf_analyzer/client_backend/triton_local/triton_loader.h"
 #include "src/clients/c++/examples/json_utils.h"
+#include "src/clients/c++/perf_analyzer/client_backend/triton_local/triton_loader.h"
 
 namespace perfanalyzer { namespace clientbackend {
 
@@ -40,7 +40,8 @@ TritonLocalClientBackend::Create(
     std::unique_ptr<ClientBackend>* client_backend)
 {
   std::unique_ptr<TritonLocalClientBackend> triton_client_backend(
-      new TritonLocalClientBackend(protocol, compression_algorithm, http_headers));
+      new TritonLocalClientBackend(
+          protocol, compression_algorithm, http_headers));
   if (protocol == ProtocolType::HTTP) {
     RETURN_IF_TRITON_ERROR(nic::InferenceServerHttpClient::Create(
         &(triton_client_backend->client_.http_client_), url, verbose));
@@ -395,7 +396,8 @@ TritonLocalClientBackend::ParseInferInputToTriton(
     std::vector<nic::InferInput*>* triton_inputs)
 {
   for (const auto input : inputs) {
-    triton_inputs->push_back((dynamic_cast<TritonLocalInferInput*>(input))->Get());
+    triton_inputs->push_back(
+        (dynamic_cast<TritonLocalInferInput*>(input))->Get());
   }
 }
 
@@ -500,7 +502,8 @@ TritonLocalInferInput::Create(
     InferInput** infer_input, const std::string& name,
     const std::vector<int64_t>& dims, const std::string& datatype)
 {
-  TritonLocalInferInput* local_infer_input = new TritonLocalInferInput(name, datatype);
+  TritonLocalInferInput* local_infer_input =
+      new TritonLocalInferInput(name, datatype);
 
   nic::InferInput* triton_infer_input;
   RETURN_IF_TRITON_ERROR(

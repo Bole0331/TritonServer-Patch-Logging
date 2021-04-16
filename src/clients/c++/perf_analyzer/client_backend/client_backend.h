@@ -81,8 +81,13 @@ class InferInput;
 class InferRequestedOutput;
 class InferResult;
 
-enum BackendKind { TRITON = 0, TENSORFLOW_SERVING = 1, TORCHSERVE = 2, TRITON_LOCAL=3};
-enum ProtocolType { HTTP = 0, GRPC = 1, UNKNOWN = 2, LOCAL= 3 };
+enum BackendKind {
+  TRITON = 0,
+  TENSORFLOW_SERVING = 1,
+  TORCHSERVE = 2,
+  TRITON_LOCAL = 3
+};
+enum ProtocolType { HTTP = 0, GRPC = 1, UNKNOWN = 2, LOCAL = 3 };
 enum GrpcCompressionAlgorithm {
   COMPRESS_NONE = 0,
   COMPRESS_DEFLATE = 1,

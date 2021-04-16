@@ -26,6 +26,9 @@
 #include "src/clients/c++/perf_analyzer/client_backend/triton_local/shared_library.h"
 #include <dlfcn.h>
 
+/// FIXME: Duplication of server/src/core/shared_library.cc
+/// Separate shared_library to common library and delete this
+
 namespace perfanalyzer { namespace clientbackend {
 
 Error
@@ -34,9 +37,8 @@ OpenLibraryHandle(const std::string& path, void** handle)
   std::cout << "OpenLibraryHandle: " << path << std::endl;
   *handle = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
   if (*handle == nullptr) {
-    return Error(
-        "unable to load backend library: " + std::string(dlerror()));
-  } 
+    return Error("unable to load backend library: " + std::string(dlerror()));
+  }
   return Error::Success;
 }
 
@@ -66,8 +68,9 @@ GetEntrypoint(
     }
 
     std::string errstr(dlsym_error);  // need copy as dlclose overwrites
-    return Error("unable to find required entrypoint '" + name +
-                                     "' in backend library: " + errstr);
+    return Error(
+        "unable to find required entrypoint '" + name +
+        "' in backend library: " + errstr);
   }
 
   if (fn == nullptr) {
@@ -82,4 +85,4 @@ GetEntrypoint(
   *befn = fn;
   return Error::Success;
 }
-}}  // namespace perfanalyzer::clientbackend 
+}}  // namespace perfanalyzer::clientbackend

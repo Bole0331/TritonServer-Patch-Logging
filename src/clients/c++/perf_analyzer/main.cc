@@ -1108,8 +1108,9 @@ main(int argc, char** argv)
   }
 
   if (!url_specified && (protocol == cb::ProtocolType::GRPC)) {
-    if (kind == cb::BackendKind::TRITON || kind == cb::BackendKind::TRITON_LOCAL) {
-      url = "localhost:8001"; 
+    if (kind == cb::BackendKind::TRITON ||
+        kind == cb::BackendKind::TRITON_LOCAL) {
+      url = "localhost:8001";
     } else if (kind == cb::BackendKind::TENSORFLOW_SERVING) {
       url = "localhost:8500";
     }
@@ -1316,8 +1317,9 @@ main(int argc, char** argv)
       "failed to create profiler");
 
   // pre-run report
-  std::cout << "*** Measurement Settings REMOVE MEEEEEE***" << std::endl;
-  if (kind == cb::BackendKind::TRITON ||kind == cb::BackendKind::TRITON_LOCAL || using_batch_size) {
+  std::cout << "*** Measurement Settings REMOVE MEEEE2***" << std::endl;
+  if (kind == cb::BackendKind::TRITON ||
+      kind == cb::BackendKind::TRITON_LOCAL || using_batch_size) {
     std::cout << "  Batch size: " << batch_size << std::endl;
   }
   std::cout << "  Measurement window: " << measurement_window_ms << " msec"

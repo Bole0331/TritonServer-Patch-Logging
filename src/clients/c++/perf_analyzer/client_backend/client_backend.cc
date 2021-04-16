@@ -135,7 +135,7 @@ ClientBackend::Create(
     RETURN_IF_CB_ERROR(TorchServeClientBackend::Create(
         url, protocol, http_headers, verbose, &local_backend));
   } else if (kind == TRITON_LOCAL) {
-     RETURN_IF_CB_ERROR(TritonLocalClientBackend::Create(
+    RETURN_IF_CB_ERROR(TritonLocalClientBackend::Create(
         url, protocol, BackendToGrpcType(compression_algorithm), http_headers,
         verbose, &local_backend));
   } else {
@@ -329,7 +329,7 @@ InferInput::Create(
         TorchServeInferInput::Create(infer_input, name, dims, datatype));
   } else if (kind == TRITON_LOCAL) {
     RETURN_IF_CB_ERROR(
-        TritonLocalInferInput::Create(infer_input, name, dims, datatype)); 
+        TritonLocalInferInput::Create(infer_input, name, dims, datatype));
   } else {
     return Error(
         "unsupported client backend provided to create InferInput object");
@@ -391,9 +391,9 @@ InferRequestedOutput::Create(
     RETURN_IF_CB_ERROR(
         TritonInferRequestedOutput::Create(infer_output, name, class_count));
   } else if (kind == TRITON_LOCAL) {
-    RETURN_IF_CB_ERROR(
-        TritonLocalInferRequestedOutput::Create(infer_output, name, class_count));
-  }else if (kind == TENSORFLOW_SERVING) {
+    RETURN_IF_CB_ERROR(TritonLocalInferRequestedOutput::Create(
+        infer_output, name, class_count));
+  } else if (kind == TENSORFLOW_SERVING) {
     RETURN_IF_CB_ERROR(TFServeInferRequestedOutput::Create(infer_output, name));
   } else {
     return Error(

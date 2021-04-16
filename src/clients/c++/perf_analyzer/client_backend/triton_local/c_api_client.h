@@ -61,13 +61,14 @@ class InferenceServerCapi : public InferenceServerClient {
 
   /// Create a client that can be used to communicate with the server.
   /// \param client Returns a new CAPI object
-  /// \param library_path 
+  /// \param library_path
   /// \return Error object indicating success or failure.
   static Error Create(
       std::unique_ptr<InferenceServerCapi>* client,
-      const std::string& library_path) {
-          TritonLoader(library_path);
-      }
+      const std::string& library_path)
+  {
+    TritonLoader(library_path);
+  }
 
   /// Contact the inference server and get its liveness.
   /// \param live Returns whether the server is live or not.
@@ -228,12 +229,9 @@ class InferenceServerCapi : public InferenceServerClient {
       const Parameters& query_params = Parameters());
 
  private:
-  InferenceServerCapi(
-      const std::string& library_path, bool verbose);
+  InferenceServerCapi(const std::string& library_path, bool verbose);
   // The server library path
   const std::string library_path_;
-
-
 };
 
 
