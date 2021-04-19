@@ -43,6 +43,8 @@ add_library(
 target_link_libraries(
   custombackendparts
   PRIVATE triton-core-serverapi        # from repo-core
+  PRIVATE proto-library
+  PRIVATE protobuf::libprotobuf
 )
 
 add_custom_command(
@@ -75,12 +77,12 @@ install(
 
 # Install the triton and protobuf headers needed to build a custom
 # backend
-install(
-  FILES
-    ../../../core/model_config.h
-    ${CMAKE_CURRENT_BINARY_DIR}/../../../core/model_config.pb.h
-  DESTINATION include/src/core
-)
+#install(
+#  FILES
+#    ../../../core/model_config.h
+#    ${CMAKE_CURRENT_BINARY_DIR}/../../../core/model_config.pb.h
+#  DESTINATION include/src/core
+#)
 install(
   FILES ../../../backends/custom/custom.h
   DESTINATION include/src/backends/custom
