@@ -751,6 +751,7 @@ TRITONBACKEND_ResponseSend(
   if (error == nullptr) {
     status = InferenceResponse::Send(std::move(utr), send_flags);
   } else {
+    LOG_ERROR << "Error in Response: " << TRITONSERVER_ErrorCodeString(error) << "-" << TRITONSERVER_ErrorMessage(error);
     status = InferenceResponse::SendWithStatus(
         std::move(utr), send_flags,
         Status(
