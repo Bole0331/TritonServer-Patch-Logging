@@ -1177,7 +1177,7 @@ HTTPAPIServer::InferResponseAlloc(
     // Can't allocate for any memory type other than CPU. If asked to
     // allocate on GPU memory then force allocation on CPU instead.
     if (*actual_memory_type != TRITONSERVER_MEMORY_CPU) {
-      LOG_VERBOSE(0) << "HTTP: unable to provide '" << tensor_name << "' in "
+      LOG_ERROR << "HTTP: unable to provide '" << tensor_name << "' in "
                      << TRITONSERVER_MemoryTypeString(*actual_memory_type)
                      << ", will use "
                      << TRITONSERVER_MemoryTypeString(TRITONSERVER_MEMORY_CPU);
@@ -1297,7 +1297,7 @@ HTTPAPIServer::Handle(evhtp_request_t* req)
     }
   }
 
-  LOG_VERBOSE(0) << "HTTP error: " << req->method << " " << req->uri->path->full
+  LOG_ERROR << "HTTP error: " << req->method << " " << req->uri->path->full
                  << " - " << static_cast<int>(EVHTP_RES_BADREQ);
 
   evhtp_send_reply(req, EVHTP_RES_BADREQ);
@@ -2324,7 +2324,7 @@ HTTPAPIServer::HandleInfer(
   }
 
   if (err != nullptr) {
-    LOG_VERBOSE(0) << "Infer failed: " << TRITONSERVER_ErrorMessage(err);
+    LOG_ERROR << "Infer failed: " << TRITONSERVER_ErrorMessage(err);
     EVBufferAddErrorJson(req->buffer_out, err);
     evhtp_send_reply(req, EVHTP_RES_BADREQ);
     if (connection_paused) {
